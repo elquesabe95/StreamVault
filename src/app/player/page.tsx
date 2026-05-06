@@ -127,7 +127,7 @@ export default function PlayerPage() {
   const [itemId] = useState<number>(() => {
     if (typeof window === "undefined") return 0;
     const p = new URLSearchParams(window.location.search);
-    return parseInt(p.get("id") || "0");
+    return parseInt(p.get("id") || p.get("tmdbId") || "0");
   });
   const [currentSeason, setCurrentSeason] = useState<number>(() => {
     if (typeof window === "undefined") return 1;
@@ -226,8 +226,24 @@ export default function PlayerPage() {
         setSources(pd.sources);
         if (pd.sources.length > 0) setActiveSource(pd.sources[0].url);
       })
-      .catch(() => {
-        if (!cancelled) dispatch({ type: "FETCH_ERROR", message: "Error de conexion. Intenta de nuevo." });
+      .catch((err) => {
+        if (cancelled) return;
+        // Fallback: If player data fetch fails, we still want to show the UI if possible
+        // or at least show a less disruptive error.
+        dispatch({ type: "FETCH_ERROR", message: "Error cargando fuente principal. Prueba seleccionando otra fuente en el menu superior." });
+        
+        // Try to construct basic sources if we have the ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const type = (urlParams.get("type") || "movie") as "movie" | "tv";
+        const id = parseInt(urlParams.get("id") || "0");
+        if (id) {
+          const fallbackSources = [
+            { name: "vidsrc", label: "VidSrc (Alternativo)", url: type === "movie" ? `https://vidsrc.xyz/embed/movie/${id}` : `https://vidsrc.xyz/embed/tv/${id}/${urlParams.get("season") || 1}/${urlParams.get("episode") || 1}` },
+            { name: "vidsrc-cc", label: "VidSrc CC", url: type === "movie" ? `https://vidsrc.cc/v2/embed/movie/${id}` : `https://vidsrc.cc/v2/embed/tv/${id}/${urlParams.get("season") || 1}/${urlParams.get("episode") || 1}` }
+          ];
+          setSources(fallbackSources);
+          setActiveSource(fallbackSources[0].url);
+        }
       });
 
     return () => { cancelled = true; };
