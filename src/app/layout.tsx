@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StreamVault — Series, Anime y Peliculas en Streaming",
-  description: "Tu plataforma de streaming. Series, anime, peliculas y canales de TV en un solo lugar. Interfaz estilo Netflix con reproduccion automatica y sin anuncios molestos.",
+  title: "StreamVault — Series, Anime y Películas en Streaming",
+  description: "Tu plataforma de streaming con reproductor estilo Netflix",
   icons: {
     icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>",
   },
@@ -27,13 +27,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        style={{ background: "#141414", color: "#ffffff" }}
-      >
+    <html lang="es">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
-        <Toaster richColors position="top-right" />
+        <Toaster />
       </body>
     </html>
   );

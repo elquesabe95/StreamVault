@@ -10,17 +10,26 @@ export interface EmbedSource {
   priority: number; // lower = higher priority
 }
 
+const embedSources: EmbedSource[] = [
   {
     name: "pelispedia",
     label: "PelisPedia (Latino)",
     type: "both",
-    getMovieUrl: (id) => `${id}`, // We'll use the ID to search or use a specific proxy
+    getMovieUrl: (id) => `${id}`,
     getTvUrl: (id, s, e) => `${id}/${s}/${e}`,
-    priority: 0, // Top priority for Latino content
+    priority: 0,
   },
   {
     name: "jkanime",
-    label: "JKAnime (Anime)",
+    label: "JKAnime (Latino/Sub)",
+    type: "tv",
+    getMovieUrl: () => "",
+    getTvUrl: (id, s, e) => `${id}/${s}/${e}`,
+    priority: 0,
+  },
+  {
+    name: "anime1v",
+    label: "Anime1V (Propio)",
     type: "tv",
     getMovieUrl: () => "",
     getTvUrl: (id, s, e) => `${id}/${s}/${e}`,

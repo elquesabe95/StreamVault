@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchPelispedia, getPelispediaSources } from "@/lib/scrapers/pelispedia";
 import { searchJKAnime, getJKAnimeServers } from "@/lib/scrapers/jkanime";
+import { searchAnime1v, getAnime1vEpisodes, getAnime1vEpisodeLinks } from "@/lib/scrapers/anime1v";
 
 export async function GET(req: NextRequest) {
   try {
@@ -51,6 +52,34 @@ export async function GET(req: NextRequest) {
 
       // Use the first server (usually Nozomi or Fembed)
       return NextResponse.redirect(servers[0].remote);
+    }
+
+    if (source === "anime1v") {
+      const results = await searchAnime1v(query);
+      if (results.length === 0) {
+        return NextResponse.json(
+          { success: false, message: "No se encontró el anime en Anime1V" },
+          { status: 404 }
+        );
+      }
+      const bestMatch = results[0];
+      const episodes = await getAnime1vEpisodes(bestMatch.url);
+      if (episodes.length === 0 || !episodes[episode - 1]) {
+        return NextResponse.json(
+          { success: false, message: "Episodio no disponible en Anime1V" },
+          { status: 404 }
+        );
+      }
+      const epData = await getAnime1vEpisodeLinks(episodes[episode - 1].url);
+      const sources = epData.downloads || [];
+      if (sources.length === 0) {
+        return NextResponse.json(
+          { success: false, message: "No hay enlaces de descarga para este episodio" },
+          { status: 404 }
+        );
+      }
+      // Devolver la URL del primer enlace (mejor calidad)
+      return NextResponse.redirect(sources[0].url);
     }
 
     return NextResponse.json({ success: false, message: "Fuente no soportada" }, { status: 400 });

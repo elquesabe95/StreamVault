@@ -101,10 +101,22 @@ export async function GET(req: NextRequest) {
           })),
           sources: sources.map(s => {
             if (s.name === "pelispedia") {
-              return { ...s, url: `/api/v1/scraper?source=pelispedia&query=${encodeURIComponent(show.name)}&type=tv&season=${season}&episode=${episode}` };
+              return {
+                ...s,
+                url: `/api/v1/scraper?source=pelispedia&query=${encodeURIComponent(show.name)}&episode=${episode}`,
+              };
             }
-            if (s.name === "jkanime" && show.genres.some(g => g.name.toLowerCase().includes("anim"))) {
-              return { ...s, url: `/api/v1/scraper?source=jkanime&query=${encodeURIComponent(show.name)}&episode=${episode}` };
+            if (s.name === "jkanime") {
+              return {
+                ...s,
+                url: `/api/v1/scraper?source=jkanime&query=${encodeURIComponent(show.name)}&episode=${episode}`,
+              };
+            }
+            if (s.name === "anime1v") {
+              return {
+                ...s,
+                url: `/api/v1/scraper?source=anime1v&query=${encodeURIComponent(show.name)}&episode=${episode}`,
+              };
             }
             return s;
           }),
