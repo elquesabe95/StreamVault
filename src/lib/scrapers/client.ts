@@ -49,7 +49,8 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
     
     curlArgs.push(url);
     
-    const result = spawnSync("curl.exe", curlArgs, { 
+    const curlExecutable = process.platform === "win32" ? "curl.exe" : "curl";
+    const result = spawnSync(curlExecutable, curlArgs, { 
       encoding: "utf8", 
       maxBuffer: 1024 * 1024 * 10,
       windowsHide: true
