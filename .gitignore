@@ -25,3 +25,5 @@ server.log
 # Otros
 .DS_Store
 *.pem
+*.tsbuildinfo
+.z-ai-config

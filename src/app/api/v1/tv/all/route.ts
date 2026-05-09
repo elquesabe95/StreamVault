@@ -98,6 +98,11 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error("[API/TV/ALL] Error:", error);
-    return NextResponse.json({ success: false, message: "Error" }, { status: 500 });
+    // Fallback to static channels on any error (like database connection issues)
+    return NextResponse.json({ 
+      success: true, 
+      count: staticChannels.length,
+      results: staticChannels.map(c => ({ ...c, provider: "Premium" })) 
+    });
   }
 }
