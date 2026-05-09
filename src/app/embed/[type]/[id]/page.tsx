@@ -50,7 +50,9 @@ function EmbedContent() {
           }
         } else {
           // 1. Get metadata from TMDB to get the title
-          const tmdbRes = await fetch(`/api/v1/${type === 'movie' ? 'movie' : 'tv'}/${id}`);
+          // Anime is usually under 'tv' in TMDB
+          const tmdbType = type === 'movie' ? 'movie' : 'tv';
+          const tmdbRes = await fetch(`/api/v1/${tmdbType}/${id}`);
           const tmdbData = await tmdbRes.json();
           
           if (!tmdbData.success) {
@@ -59,7 +61,7 @@ function EmbedContent() {
           
           const contentTitle = tmdbData.data.title || tmdbData.data.name;
           setTitle(contentTitle);
-
+ 
           // 2. Get stream sources
           let apiUrl = `/api/v1/scraper?query=${encodeURIComponent(contentTitle)}&type=${type}&id=${id}`;
           if (type !== 'movie') {

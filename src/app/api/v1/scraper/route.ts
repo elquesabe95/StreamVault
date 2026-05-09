@@ -251,8 +251,9 @@ export async function GET(req: NextRequest) {
     if (finalSources.length === 0 && query) {
       const tmdbId = parseInt(query);
       if (!isNaN(tmdbId)) {
-        const path = type === "series" ? `tv/${tmdbId}/${season}/${episode}` : `movie/${tmdbId}`;
-        const pathAlt = type === "series" ? `tv/${tmdbId}/${season}/${episode}` : `movie/${tmdbId}`;
+        const isSeries = type === "series" || type === "anime";
+        const path = isSeries ? `tv/${tmdbId}/${season}/${episode}` : `movie/${tmdbId}`;
+        const pathAlt = isSeries ? `tv/${tmdbId}/${season}/${episode}` : `movie/${tmdbId}`;
         
         finalSources.push(
           {

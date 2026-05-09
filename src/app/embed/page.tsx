@@ -14,8 +14,8 @@ export default function EmbedGenerator() {
   
   const embedUrl = type === "movie" 
     ? `${baseUrl}/embed/movie/${tmdbId}`
-    : type === "tv"
-    ? `${baseUrl}/embed/tv/${tmdbId}?season=${season}&episode=${episode}`
+    : (type === "tv" || type === ("anime" as any))
+    ? `${baseUrl}/embed/${type}/${tmdbId}?season=${season}&episode=${episode}`
     : `${baseUrl}/embed/live/${tmdbId}`;
 
   const iframeCode = `<iframe 
@@ -69,6 +69,12 @@ export default function EmbedGenerator() {
                   className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg transition-all font-semibold ${type === "tv" ? "bg-yellow-500 text-black shadow-lg" : "text-gray-400 hover:text-white"}`}
                 >
                   <Tv size={18} /> Serie
+                </button>
+                <button 
+                  onClick={() => { setType("anime" as any); setTmdbId("31911"); }}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg transition-all font-semibold ${type === ("anime" as any) ? "bg-yellow-500 text-black shadow-lg" : "text-gray-400 hover:text-white"}`}
+                >
+                  <Tv size={18} /> Anime
                 </button>
                 <button 
                   onClick={() => { setType("live"); setTmdbId("caracol-tv"); }}

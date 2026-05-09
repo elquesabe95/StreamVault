@@ -82,6 +82,23 @@ export async function GET(req: NextRequest) {
 
     if (page === 1 && !search && results.length === 0) {
       results = staticChannels.map(c => ({ ...c, provider: "Premium" }));
+      
+      // Attempt to get international channels from IPTV-org directly if DB is empty
+      try {
+        const res = await fetch("https://iptv-org.github.io/api/streams.json");
+        const streams = await res.json();
+        if (Array.isArray(streams)) {
+          const sample = streams.slice(0, 50).map(s => ({
+            name: s.channel || "Canal Internacional",
+            url: s.url,
+            logo: "",
+            category: "Internacional",
+            provider: "IPTV-org"
+          }));
+          results.push(...sample);
+        }
+      } catch (e) {}
+
       if (iptv && (iptv as any).syncChannelsGlobal) {
         (iptv as any).syncChannelsGlobal().catch((e: any) => console.error("Sync error:", e));
       }
