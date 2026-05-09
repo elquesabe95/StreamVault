@@ -252,7 +252,8 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const contentId = searchParams.get("id") || (query && !isNaN(parseInt(query)) ? query : null);
+    // Robust ID detection (check multiple params)
+    const contentId = searchParams.get("id") || searchParams.get("tmdbId") || (query && !isNaN(parseInt(query)) ? query : null);
 
     // STEALTH FALLBACK: If original scrapers failed on Render, add reliable sources but with original naming
     if (finalSources.length === 0 && contentId) {
@@ -264,19 +265,19 @@ export async function GET(req: NextRequest) {
         finalSources.push(
           {
             url: `https://vidsrc.to/embed/${path}`,
-            name: `Servidor ${serverCount++}`,
+            name: `Servidor 1`,
             lang: "Latino/Sub",
             playbackType: "iframe",
           },
           {
             url: `https://embed.su/embed/${path}`,
-            name: `Servidor ${serverCount++}`,
+            name: `Servidor 2`,
             lang: "Multi",
             playbackType: "iframe",
           },
           {
             url: `https://vidlink.pro/${isSeries ? "tv" : "movie"}/${tmdbId}/${isSeries ? `${season}/${episode}` : ""}`,
-            name: `Servidor ${serverCount++}`,
+            name: `Servidor 3`,
             lang: "Latino",
             playbackType: "iframe",
           }
