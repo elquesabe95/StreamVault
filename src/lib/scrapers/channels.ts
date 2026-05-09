@@ -68,5 +68,75 @@ export const channels = [
     logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/History_Logo.svg/1200px-History_Logo.svg.png",
     category: "Documentales",
     country: "Internacional"
+  },
+  {
+    name: "Sony Channel",
+    url: "/api/v1/scraper?slug=sony-channel&provider=teleonline",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Sony_Channel_Logo.svg/1200px-Sony_Channel_Logo.svg.png",
+    category: "Entretenimiento",
+    country: "Internacional"
+  },
+  {
+    name: "Warner Channel",
+    url: "/api/v1/scraper?slug=warner-channel&provider=teleonline",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Warner_Channel_Logo.svg/1200px-Warner_Channel_Logo.svg.png",
+    category: "Entretenimiento",
+    country: "Internacional"
+  },
+  {
+    name: "AXN",
+    url: "/api/v1/scraper?slug=axn&provider=teleonline",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/AXN_logo.svg/1200px-AXN_logo.svg.png",
+    category: "Entretenimiento",
+    country: "Internacional"
+  },
+  {
+    name: "TNT",
+    url: "/api/v1/scraper?slug=tnt&provider=teleonline",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/TNT_logo.svg/1200px-TNT_logo.svg.png",
+    category: "Cine",
+    country: "Internacional"
+  },
+  {
+    name: "Fox Sports",
+    url: "/api/v1/scraper?slug=fox-sports&provider=teleonline",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Fox_Sports_logo.svg/1200px-Fox_Sports_logo.svg.png",
+    category: "Deportes",
+    country: "Internacional"
+  },
+  {
+    name: "National Geographic",
+    url: "/api/v1/scraper?slug=national-geographic&provider=teleonline",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/National_Geographic_logo.svg/1200px-National_Geographic_logo.svg.png",
+    category: "Documentales",
+    country: "Internacional"
+  },
+  {
+    name: "Animal Planet",
+    url: "/api/v1/scraper?slug=animal-planet&provider=teleonline",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Animal_Planet_logo.svg/1200px-Animal_Planet_logo.svg.png",
+    category: "Documentales",
+    country: "Internacional"
+  },
+  {
+    name: "Cartoon Network",
+    url: "/api/v1/scraper?slug=cartoon-network&provider=teleonline",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Cartoon_Network_2010_logo.svg/1200px-Cartoon_Network_2010_logo.svg.png",
+    category: "Infantil",
+    country: "Internacional"
+  },
+  {
+    name: "Discovery Kids",
+    url: "/api/v1/scraper?slug=discovery-kids&provider=teleonline",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Discovery_Kids_logo.svg/1200px-Discovery_Kids_logo.svg.png",
+    category: "Infantil",
+    country: "Internacional"
+  },
+  {
+    name: "Boomerang",
+    url: "/api/v1/scraper?slug=boomerang&provider=teleonline",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Boomerang_logo.svg/1200px-Boomerang_logo.svg.png",
+    category: "Infantil",
+    country: "Internacional"
   }
 ];
