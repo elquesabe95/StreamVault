@@ -9,8 +9,6 @@ import { getChannelsByCountry, searchChannels as searchTele } from "@/lib/teleon
 import { channels as staticChannels } from "@/lib/scrapers/channels";
 import { prisma } from "@/lib/prisma";
 
-export const dynamic = "force-dynamic";
-
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
   const page = parseInt(searchParams.get("page") || "1");
