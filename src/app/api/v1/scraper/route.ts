@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { searchJKAnime, getJKAnimeServers } from "@/lib/scrapers/jkanime";
 import { searchAnimeFLV, getAnimeFLVServers } from "@/lib/scrapers/animeflv";
 import { searchAnimeAV1, getAnimeAV1Episodes, getAnimeAV1Servers } from "@/lib/scrapers/animeav1";
@@ -248,12 +252,14 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    if (finalSources.length === 0 && query) {
-      const tmdbId = parseInt(query);
+    const contentId = searchParams.get("id") || (query && !isNaN(parseInt(query)) ? query : null);
+
+    // ALWAYS add high-reliability backups if we have an ID
+    if (contentId) {
+      const tmdbId = parseInt(contentId);
       if (!isNaN(tmdbId)) {
         const isSeries = type === "series" || type === "anime";
         const path = isSeries ? `tv/${tmdbId}/${season}/${episode}` : `movie/${tmdbId}`;
-        const pathAlt = isSeries ? `tv/${tmdbId}/${season}/${episode}` : `movie/${tmdbId}`;
         
         finalSources.push(
           {
@@ -263,13 +269,13 @@ export async function GET(req: NextRequest) {
             playbackType: "iframe",
           },
           {
-            url: `https://embed.su/embed/${pathAlt}`,
+            url: `https://embed.su/embed/${path}`,
             name: "Servidor Embed.su (Backup)",
             lang: "Multi",
             playbackType: "iframe",
           },
           {
-            url: `https://vidlink.pro/${type === "series" ? "tv" : "movie"}/${tmdbId}/${type === "series" ? `${season}/${episode}` : ""}`,
+            url: `https://vidlink.pro/${isSeries ? "tv" : "movie"}/${tmdbId}/${isSeries ? `${season}/${episode}` : ""}`,
             name: "Servidor VidLink (Backup)",
             lang: "Multi",
             playbackType: "iframe",

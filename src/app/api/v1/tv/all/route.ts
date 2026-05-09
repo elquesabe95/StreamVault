@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { getAnimuxChannels } from "@/lib/scrapers/animux";
 import * as iptv from "@/lib/scrapers/iptv-org";
 import { getChannelsByCountry, searchChannels as searchTele } from "@/lib/teleonline";
@@ -85,7 +89,7 @@ export async function GET(req: NextRequest) {
       
       // Attempt to get international channels from IPTV-org directly if DB is empty
       try {
-        const res = await fetch("https://iptv-org.github.io/api/streams.json");
+        const res = await fetch("https://iptv-org.github.io/api/streams/co.json");
         const streams = await res.json();
         if (Array.isArray(streams)) {
           const sample = streams.slice(0, 50).map(s => ({
