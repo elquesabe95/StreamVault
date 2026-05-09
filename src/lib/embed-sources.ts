@@ -43,6 +43,22 @@ const embedSources: EmbedSource[] = [
     getTvUrl: () => "",
     priority: 7,
   },
+  {
+    name: "vidsrc",
+    label: "VidSrc (Ingles/Sub)",
+    type: "both",
+    getMovieUrl: (id) => `https://vidsrc.to/embed/movie/${id}`,
+    getTvUrl: (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
+    priority: 10,
+  },
+  {
+    name: "embedsu",
+    label: "Embed.su (Multi)",
+    type: "both",
+    getMovieUrl: (id) => `https://embed.su/embed/movie/${id}`,
+    getTvUrl: (id, s, e) => `https://embed.su/embed/tv/${id}/${s}/${e}`,
+    priority: 11,
+  },
 ];
 
 export function getEmbedSources(type: "movie" | "tv"): EmbedSource[] {

@@ -248,6 +248,35 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    if (finalSources.length === 0 && query) {
+      const tmdbId = parseInt(query);
+      if (!isNaN(tmdbId)) {
+        const path = type === "series" ? `tv/${tmdbId}/${season}/${episode}` : `movie/${tmdbId}`;
+        const pathAlt = type === "series" ? `tv/${tmdbId}/${season}/${episode}` : `movie/${tmdbId}`;
+        
+        finalSources.push(
+          {
+            url: `https://vidsrc.to/embed/${path}`,
+            name: "Servidor VidSrc (Backup)",
+            lang: "Sub/EN",
+            playbackType: "iframe",
+          },
+          {
+            url: `https://embed.su/embed/${pathAlt}`,
+            name: "Servidor Embed.su (Backup)",
+            lang: "Multi",
+            playbackType: "iframe",
+          },
+          {
+            url: `https://vidlink.pro/${type === "series" ? "tv" : "movie"}/${tmdbId}/${type === "series" ? `${season}/${episode}` : ""}`,
+            name: "Servidor VidLink (Backup)",
+            lang: "Multi",
+            playbackType: "iframe",
+          }
+        );
+      }
+    }
+
     return NextResponse.json({
       success: true,
       sources: finalSources
