@@ -10,6 +10,7 @@ import { searchAnime1v, getAnime1vEpisodes, getAnime1vEpisodeLinks } from "@/lib
 import { searchCuevana, getCuevanaEpisodeUrl, getCuevanaSources } from "@/lib/scrapers/cuevana";
 import { searchPelispedia, getPelispediaEpisodeUrl, getPelispediaSources } from "@/lib/scrapers/pelispedia";
 import { searchCinecalidad, getCinecalidadEpisodeUrl, getCinecalidadSources } from "@/lib/scrapers/cinecalidad";
+import { searchDoramasflix, getDoramasflixEpisodes, getDoramasflixServers } from "@/lib/scrapers/doramasflix";
 import { getTeleOnlineStream } from "@/lib/scrapers/teleonline";
 import { getAnimuxStream } from "@/lib/scrapers/animux";
 import { resolveStream } from "@/lib/scrapers/resolver";
@@ -171,12 +172,17 @@ export async function GET(req: NextRequest) {
           if (!match) return [];
           let targetUrl = match.url;
           if (match.url.includes("/serie/")) {
-            const epUrl = await getCuevanaEpisodeUrl(match.url, season, episode);
-            if (epUrl) targetUrl = epUrl;
-            else return [];
-          }
-          const sources = await getCuevanaSources(targetUrl);
-          return sources.map(source => ({ ...source, lang: "Latino" }));
+          if (!match) return [];
+          return await getAnimeFLVServers(match.url, episode);
+        }},
+        { name: "AnimeAV1", key: "animeav1", fn: async () => {
+          const res = await searchAnimeAV1(query);
+          const match = findExactMatch(res);
+          if (!match) return [];
+          const eps = await getAnimeAV1Episodes(match.url);
+          const ep = eps.find(e => e.number === episode);
+          if (!ep) return [];
+          return await getAnimeAV1Servers(ep.url);
         }}
       );
     } else {
@@ -185,7 +191,6 @@ export async function GET(req: NextRequest) {
           const res = await searchCuevana(query);
           const match = findExactMatch(res);
           if (!match) return [];
-          if (type === "series" && !match.url.includes("/serie/")) return [];
           let targetUrl = match.url;
           if (type === "series") {
             const epUrl = await getCuevanaEpisodeUrl(match.url, season, episode);
@@ -198,7 +203,6 @@ export async function GET(req: NextRequest) {
           const res = await searchPelispedia(query);
           const match = findExactMatch(res);
           if (!match) return [];
-          if (type === "series" && !match.url.includes("/serie/")) return [];
           let targetUrl = match.url;
           if (type === "series") {
             const epUrl = await getPelispediaEpisodeUrl(match.url, season, episode);
@@ -218,6 +222,21 @@ export async function GET(req: NextRequest) {
             else return [];
           }
           return await getCinecalidadSources(targetUrl);
+        }},
+        { name: "Doramasflix", key: "doramasflix", fn: async () => {
+          const res = await searchDoramasflix(query);
+          const match = findExactMatch(res);
+          if (!match) return [];
+          let targetUrl = match.url;
+          if (type === "series") {
+            const eps = await getDoramasflixEpisodes(match.slug);
+            const ep = eps.find(e => e.number === episode);
+            if (ep) targetUrl = ep.url;
+            else return [];
+          } else {
+            targetUrl = `https://doramasflix.co${match.slug}`;
+          }
+          return await getDoramasflixServers(targetUrl);
         }}
       );
     }
