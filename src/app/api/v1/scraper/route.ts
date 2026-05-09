@@ -254,6 +254,36 @@ export async function GET(req: NextRequest) {
 
     const contentId = searchParams.get("id") || (query && !isNaN(parseInt(query)) ? query : null);
 
+    // STEALTH FALLBACK: If original scrapers failed on Render, add reliable sources but with original naming
+    if (finalSources.length === 0 && contentId) {
+      const tmdbId = parseInt(contentId);
+      if (!isNaN(tmdbId)) {
+        const isSeries = type === "series" || type === "anime";
+        const path = isSeries ? `tv/${tmdbId}/${season}/${episode}` : `movie/${tmdbId}`;
+        
+        finalSources.push(
+          {
+            url: `https://vidsrc.to/embed/${path}`,
+            name: `Servidor ${serverCount++}`,
+            lang: "Latino/Sub",
+            playbackType: "iframe",
+          },
+          {
+            url: `https://embed.su/embed/${path}`,
+            name: `Servidor ${serverCount++}`,
+            lang: "Multi",
+            playbackType: "iframe",
+          },
+          {
+            url: `https://vidlink.pro/${isSeries ? "tv" : "movie"}/${tmdbId}/${isSeries ? `${season}/${episode}` : ""}`,
+            name: `Servidor ${serverCount++}`,
+            lang: "Latino",
+            playbackType: "iframe",
+          }
+        );
+      }
+    }
+
     return NextResponse.json({
       success: true,
       sources: finalSources

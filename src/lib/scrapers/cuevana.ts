@@ -16,20 +16,34 @@ export interface CuevanaSource {
 }
 
 async function getWorkingBase(): Promise<string> {
+  const commonHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+    'Cache-Control': 'max-age=0',
+    'Sec-Ch-Ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+    'Sec-Ch-Ua-Mobile': '?0',
+    'Sec-Ch-Ua-Platform': '"Windows"',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Upgrade-Insecure-Requests': '1'
+  };
+
   for (const domain of DOMAINS) {
     try {
       const res = await fetch(`${domain}/`, {
-        signal: AbortSignal.timeout(5000),
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        signal: AbortSignal.timeout(6000),
+        headers: commonHeaders
       });
       if (res.status === 200) {
         const html = await res.text();
-        // Make sure it's really Cuevana, not a redirect page
         if (html.length > 5000) return domain;
       }
     } catch (_) {}
   }
-  return DOMAINS[0]; // fallback
+  return DOMAINS[0]; 
 }
 
 /**
