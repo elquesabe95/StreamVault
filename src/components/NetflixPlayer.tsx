@@ -229,10 +229,13 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
         </div>
       ) : isEmbed ? (
         <iframe
+          key={currentSource.url}
           src={currentSource.url}
           className="w-full h-full border-0"
           allowFullScreen
-          allow="autoplay; encrypted-media"
+          allow="autoplay; encrypted-media; picture-in-picture"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+          referrerPolicy="no-referrer"
         />
       ) : (
         <>
