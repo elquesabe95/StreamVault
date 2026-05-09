@@ -9,6 +9,7 @@ import { searchAnimeAV1, getAnimeAV1Episodes, getAnimeAV1Servers } from "@/lib/s
 import { searchAnime1v, getAnime1vEpisodes, getAnime1vEpisodeLinks } from "@/lib/scrapers/anime1v";
 import { searchCuevana, getCuevanaEpisodeUrl, getCuevanaSources } from "@/lib/scrapers/cuevana";
 import { searchPelispedia, getPelispediaEpisodeUrl, getPelispediaSources } from "@/lib/scrapers/pelispedia";
+import { searchCinecalidad, getCinecalidadEpisodeUrl, getCinecalidadSources } from "@/lib/scrapers/cinecalidad";
 import { getTeleOnlineStream } from "@/lib/scrapers/teleonline";
 import { getAnimuxStream } from "@/lib/scrapers/animux";
 import { resolveStream } from "@/lib/scrapers/resolver";
@@ -205,6 +206,18 @@ export async function GET(req: NextRequest) {
             else return [];
           }
           return await getPelispediaSources(targetUrl);
+        }},
+        { name: "CineCalidad", key: "cinecalidad", fn: async () => {
+          const res = await searchCinecalidad(query);
+          const match = findExactMatch(res);
+          if (!match) return [];
+          let targetUrl = match.url;
+          if (type === "series") {
+            const epUrl = await getCinecalidadEpisodeUrl(match.url, season, episode);
+            if (epUrl) targetUrl = epUrl;
+            else return [];
+          }
+          return await getCinecalidadSources(targetUrl);
         }}
       );
     }
@@ -249,39 +262,6 @@ export async function GET(req: NextRequest) {
         }
       } catch (e) {
         console.warn(`[Scraper] ${provider.name} failed`, e);
-      }
-    }
-
-    // Robust ID detection (check multiple params)
-    const contentId = searchParams.get("id") || searchParams.get("tmdbId") || (query && !isNaN(parseInt(query)) ? query : null);
-
-    // STEALTH FALLBACK: If original scrapers failed on Render, add reliable sources but with original naming
-    if (finalSources.length === 0 && contentId) {
-      const tmdbId = parseInt(contentId);
-      if (!isNaN(tmdbId)) {
-        const isSeries = type === "series" || type === "anime";
-        const path = isSeries ? `tv/${tmdbId}/${season}/${episode}` : `movie/${tmdbId}`;
-        
-        finalSources.push(
-          {
-            url: `https://vidsrc.to/embed/${path}`,
-            name: `Servidor 1`,
-            lang: "Latino/Sub",
-            playbackType: "iframe",
-          },
-          {
-            url: `https://embed.su/embed/${path}`,
-            name: `Servidor 2`,
-            lang: "Multi",
-            playbackType: "iframe",
-          },
-          {
-            url: `https://vidlink.pro/${isSeries ? "tv" : "movie"}/${tmdbId}/${isSeries ? `${season}/${episode}` : ""}`,
-            name: `Servidor 3`,
-            lang: "Latino",
-            playbackType: "iframe",
-          }
-        );
       }
     }
 
