@@ -13,7 +13,7 @@ export interface CineSource {
  */
 export async function searchCinecalidad(query: string) {
   const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(query)}`;
-  const html = await readPage(searchUrl);
+  const html = await readPage(searchUrl, {}, true);
   
   const results: { title: string; url: string; poster?: string }[] = [];
   
@@ -40,7 +40,7 @@ export async function searchCinecalidad(query: string) {
  * Extract sources from CineCalidad
  */
 export async function getCinecalidadSources(pageUrl: string): Promise<CineSource[]> {
-  const html = await readPage(pageUrl);
+  const html = await readPage(pageUrl, {}, true);
   const sources: CineSource[] = [];
   
   // Pattern: service=OnlineFilemoon data=zlvmrrhp68nw
@@ -87,7 +87,7 @@ export async function getCinecalidadSources(pageUrl: string): Promise<CineSource
  */
 export async function getCinecalidadEpisodeUrl(seriesUrl: string, season: number, episode: number): Promise<string | null> {
   try {
-    const html = await readPage(seriesUrl);
+    const html = await readPage(seriesUrl, {}, true);
     const searchString = `-${season}x${episode}`;
     const searchString2 = `season-${season}-episode-${episode}`;
     

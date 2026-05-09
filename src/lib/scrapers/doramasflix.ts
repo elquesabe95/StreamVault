@@ -26,7 +26,7 @@ export async function searchDoramasflix(query: string): Promise<DoramasflixResul
   try {
     // Doramasflix search page: /buscar?q=query
     const searchUrl = `${BASE_URL}/buscar?q=${encodeURIComponent(query)}`;
-    const html = await readPage(searchUrl);
+    const html = await readPage(searchUrl, {}, true);
     
     const results: DoramasflixResult[] = [];
     
@@ -70,7 +70,7 @@ export async function searchDoramasflix(query: string): Promise<DoramasflixResul
 export async function getDoramasflixEpisodes(slug: string): Promise<DoramasflixEpisode[]> {
   try {
     const url = `${BASE_URL}${slug}`;
-    const html = await readPage(url);
+    const html = await readPage(url, {}, true);
     const episodes: DoramasflixEpisode[] = [];
     
     // Look for episode links: <a href="/episodios/slug-episodio-1" ...>
@@ -103,7 +103,7 @@ export async function getDoramasflixEpisodes(slug: string): Promise<DoramasflixE
  */
 export async function getDoramasflixServers(url: string): Promise<DoramasflixSource[]> {
   try {
-    const html = await readPage(url);
+    const html = await readPage(url, {}, true);
     const servers: DoramasflixSource[] = [];
     
     // Look for iframe sources in the HTML, or data objects

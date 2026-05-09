@@ -52,7 +52,7 @@ async function getWorkingBase(): Promise<string> {
 export async function searchCuevana(query: string) {
   const BASE_URL = await getWorkingBase();
   const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(query)}`;
-  const html = await readPage(searchUrl);
+  const html = await readPage(searchUrl, {}, true);
   
   const results: { title: string; url: string; poster?: string }[] = [];
   
@@ -82,7 +82,7 @@ export async function searchCuevana(query: string) {
  * Extract sources from Cuevana
  */
 export async function getCuevanaSources(pageUrl: string): Promise<CuevanaSource[]> {
-  const html = await readPage(pageUrl);
+  const html = await readPage(pageUrl, {}, true);
   const sources: CuevanaSource[] = [];
   
   // 1. Try TPlayer divs or servers script
@@ -124,7 +124,7 @@ export async function getCuevanaSources(pageUrl: string): Promise<CuevanaSource[
 export async function getCuevanaEpisodeUrl(seriesUrl: string, season: number, episode: number): Promise<string | null> {
   try {
     const BASE_URL = DOMAINS.find(d => seriesUrl.startsWith(d)) || DOMAINS[0];
-    const html = await readPage(seriesUrl);
+    const html = await readPage(seriesUrl, {}, true);
     
     // Multiple patterns for episode URLs
     const searchPatterns = [

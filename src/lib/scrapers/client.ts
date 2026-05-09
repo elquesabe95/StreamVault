@@ -4,7 +4,9 @@ import { spawnSync } from "child_process";
  * ULTRA-ROBUST page reader.
  * Uses native fetch first, falls back to SILENT CURL.EXE.
  */
-export async function readPage(url: string, customHeaders?: Record<string, string>): Promise<string> {
+export async function readPage(url: string, customHeaders?: Record<string, string>, useProxy: boolean = false): Promise<string> {
+  const targetUrl = useProxy ? `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` : url;
+  
   const userAgents = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
