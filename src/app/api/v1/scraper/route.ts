@@ -254,36 +254,6 @@ export async function GET(req: NextRequest) {
 
     const contentId = searchParams.get("id") || (query && !isNaN(parseInt(query)) ? query : null);
 
-    // ALWAYS add high-reliability backups if we have an ID
-    if (contentId) {
-      const tmdbId = parseInt(contentId);
-      if (!isNaN(tmdbId)) {
-        const isSeries = type === "series" || type === "anime";
-        const path = isSeries ? `tv/${tmdbId}/${season}/${episode}` : `movie/${tmdbId}`;
-        
-        finalSources.push(
-          {
-            url: `https://vidsrc.to/embed/${path}`,
-            name: "Servidor VidSrc (Backup)",
-            lang: "Sub/EN",
-            playbackType: "iframe",
-          },
-          {
-            url: `https://embed.su/embed/${path}`,
-            name: "Servidor Embed.su (Backup)",
-            lang: "Multi",
-            playbackType: "iframe",
-          },
-          {
-            url: `https://vidlink.pro/${isSeries ? "tv" : "movie"}/${tmdbId}/${isSeries ? `${season}/${episode}` : ""}`,
-            name: "Servidor VidLink (Backup)",
-            lang: "Multi",
-            playbackType: "iframe",
-          }
-        );
-      }
-    }
-
     return NextResponse.json({
       success: true,
       sources: finalSources
