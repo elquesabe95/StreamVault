@@ -19,7 +19,15 @@ export async function GET(
 
     const movie = await getMovieDetails(movieId);
     const primaryEmbed = getPrimaryEmbed("movie", movieId);
-    const allEmbeds = getAllEmbeds("movie", movieId);
+    const allEmbeds = getAllEmbeds("movie", movieId).map(source => {
+      if (source.name === "pelispedia") {
+        return {
+          ...source,
+          url: `/api/v1/scraper?source=pelispedia&query=${encodeURIComponent(movie.title)}&type=movie&tmdbId=${movieId}`,
+        };
+      }
+      return source;
+    });
 
     return NextResponse.json({
       success: true,

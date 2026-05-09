@@ -2,7 +2,7 @@
 // This module scrapes TV channel listings from teleonline.org
 // It uses the WordPress REST API and page scraping to build a channel database
 
-import ZAI from "z-ai-web-dev-sdk";
+import { readJson, readPage } from "./scrapers/client";
 
 const BASE_URL = "https://teleonline.org";
 
@@ -23,11 +23,88 @@ interface CountryInfo {
   channel_count?: number;
 }
 
+interface WpCategory {
+  id: number;
+  count: number;
+  link: string;
+  name: string;
+  slug: string;
+}
+
+interface WpPost {
+  id: number;
+  slug: string;
+  link: string;
+  title?: { rendered?: string };
+  featured_media?: number;
+  _embedded?: {
+    "wp:featuredmedia"?: Array<{
+      source_url?: string;
+      media_details?: {
+        sizes?: Record<string, { source_url?: string }>;
+      };
+    }>;
+  };
+}
+
 // Cache
 let channelsCache: Map<string, ChannelInfo[]> = new Map();
 let countriesCache: CountryInfo[] | null = null;
 let cacheTimestamp = 0;
-const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+const CACHE_DURATION = 1 * 60 * 1000; // 1 minute
+
+function decodeHtml(value: string): string {
+  return value
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/<[^>]*>/g, "")
+    .trim();
+}
+
+function titleFromSlug(slug: string): string {
+  return slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getFeaturedImage(post: WpPost): string | undefined {
+  const media = post._embedded?.["wp:featuredmedia"]?.[0];
+  return (
+    media?.media_details?.sizes?.medium?.source_url ||
+    media?.media_details?.sizes?.thumbnail?.source_url ||
+    media?.source_url
+  );
+}
+
+async function getWpCategories(): Promise<WpCategory[]> {
+  const categories: WpCategory[] = [];
+
+  for (let page = 1; page <= 10; page++) {
+    const url = `${BASE_URL}/wp-json/wp/v2/categories?per_page=100&page=${page}`;
+    const data = await readJson<WpCategory[]>(url);
+    if (!Array.isArray(data) || data.length === 0) break;
+    categories.push(...data);
+    if (data.length < 100) break;
+  }
+
+  return categories.filter((category) => category.link?.includes("/canales/"));
+}
+
+async function getCountryCategory(countrySlug: string): Promise<WpCategory | null> {
+  const direct = await readJson<WpCategory[]>(
+    `${BASE_URL}/wp-json/wp/v2/categories?slug=${encodeURIComponent(countrySlug)}`
+  );
+  const category = Array.isArray(direct)
+    ? direct.find((item) => item.slug === countrySlug && item.link?.includes("/canales/"))
+    : null;
+
+  if (category) return category;
+
+  const categories = await getWpCategories();
+  return categories.find((item) => item.slug === countrySlug) || null;
+}
 
 /**
  * Decrypts Teleonline stream URLs using XOR encryption
@@ -53,11 +130,7 @@ function decryptStream(encodedString: string): string {
   }
 }
 
-async function readPage(url: string): Promise<string> {
-  const zai = await ZAI.create();
-  const result = await zai.functions.invoke("page_reader", { url });
-  return result.data.html || "";
-}
+
 
 // Get list of available countries with their channel counts
 export async function getCountries(): Promise<CountryInfo[]> {
@@ -65,52 +138,151 @@ export async function getCountries(): Promise<CountryInfo[]> {
     return countriesCache;
   }
 
-  const html = await readPage(`${BASE_URL}/canales/espana/`);
-
-  // Extract country links from the page
-  const countryRegex = /href="https:\/\/teleonline\.org\/canales\/([^/]+)\/"/g;
   const countries: Map<string, CountryInfo> = new Map();
 
-  let match;
-  while ((match = countryRegex.exec(html)) !== null) {
-    const slug = match[1];
-    if (!countries.has(slug)) {
-      countries.set(slug, {
-        name: slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-        slug,
-        flag_url: `${BASE_URL}/img/banderas/${getCountryCode(slug)}.png`,
+  try {
+    const wpCountries = await getWpCategories();
+    for (const country of wpCountries) {
+      countries.set(country.slug, {
+        name: decodeHtml(country.name) || titleFromSlug(country.slug),
+        slug: country.slug,
+        flag_url: `${BASE_URL}/img/banderas/${getCountryCode(country.slug)}.png`,
+        channel_count: country.count,
       });
+    }
+  } catch (error) {
+    console.warn("[TeleOnline] WordPress countries failed, falling back to HTML:", error);
+  }
+
+  if (countries.size === 0) {
+    const html = await readPage(`${BASE_URL}/canales/espana/`);
+    const countryRegex = /href=["']https:\/\/teleonline\.org\/canales\/([^/]+)\/["'][^>]*>([\s\S]*?)<\/a>/g;
+
+    let match;
+    while ((match = countryRegex.exec(html)) !== null) {
+      const slug = match[1];
+      const name = decodeHtml(match[2]) || titleFromSlug(slug);
+      if (!countries.has(slug)) {
+        countries.set(slug, {
+          name,
+          slug,
+          flag_url: `${BASE_URL}/img/banderas/${getCountryCode(slug)}.png`,
+        });
+      }
     }
   }
 
-  countriesCache = Array.from(countries.values());
+  countriesCache = Array.from(countries.values()).sort((a, b) => a.name.localeCompare(b.name));
   cacheTimestamp = Date.now();
   return countriesCache;
 }
 
-// Get channels for a specific country
+// Get channels for a specific country with pagination support
 export async function getChannelsByCountry(countrySlug: string): Promise<ChannelInfo[]> {
   const cacheKey = `country_${countrySlug}`;
   if (channelsCache.has(cacheKey) && Date.now() - cacheTimestamp < CACHE_DURATION) {
     return channelsCache.get(cacheKey) || [];
   }
 
-  const html = await readPage(`${BASE_URL}/canales/${countrySlug}/`);
-
-  if (!html || html.length < 100) {
-    return [];
-  }
-
-  // Extract channel links: href="https://teleonline.org/canal/{slug}/"
-  const channelRegex = /href="https:\/\/teleonline\.org\/canal\/([^/]+)\/"/g;
-
-  // Also extract titles from the article content
-  const titleRegex = /<article[^>]*>[\s\S]*?<a[^>]+href="https:\/\/teleonline\.org\/canal\/[^/]+\/"[^>]*>[\s\S]*?<p[^>]*>([^<]+)<\/p>/g;
-
-  const channels: ChannelInfo[] = [];
+  const allChannels: ChannelInfo[] = [];
   const seen = new Set<string>();
 
-  // Extract from article blocks which have title + link
+  try {
+    const category = await getCountryCategory(countrySlug);
+    if (category) {
+      const countryName = decodeHtml(category.name) || titleFromSlug(countrySlug);
+
+      for (let page = 1; page <= 20; page++) {
+        const posts = await readJson<WpPost[]>(
+          `${BASE_URL}/wp-json/wp/v2/posts?categories=${category.id}&per_page=100&page=${page}&_embed=wp:featuredmedia`
+        );
+
+        if (!Array.isArray(posts) || posts.length === 0) break;
+
+        for (const post of posts) {
+          const slug = post.slug || post.link?.match(/\/canal\/([^/]+)\//)?.[1];
+          if (!slug || seen.has(slug)) continue;
+          seen.add(slug);
+
+          allChannels.push({
+            slug,
+            name: decodeHtml(post.title?.rendered || "") || titleFromSlug(slug),
+            country: countryName,
+            country_slug: countrySlug,
+            logo: getFeaturedImage(post),
+            url: `${BASE_URL}/canal/${slug}/`,
+            post_id: post.id,
+          });
+        }
+
+        if (posts.length < 100) break;
+      }
+
+      if (allChannels.length > 0) {
+        channelsCache.set(cacheKey, allChannels);
+        return allChannels;
+      }
+    }
+
+    const urlPatterns = [
+      `${BASE_URL}/canales/${countrySlug}/`,
+      `${BASE_URL}/${countrySlug}/`
+    ];
+
+    let successUrl = "";
+    for (const url of urlPatterns) {
+      console.log(`[TeleOnline] Trying pattern: ${url}`);
+      const html = await readPage(url);
+      if (html && html.length > 500) {
+        extractChannelsFromHtml(html, countrySlug, allChannels, seen);
+        if (allChannels.length > 0) {
+          successUrl = url;
+          break;
+        }
+      }
+    }
+
+    if (!successUrl) {
+      console.warn(`[TeleOnline] No channels found for ${countrySlug} with any pattern.`);
+      return [];
+    }
+
+    // 2. Detect total pages from the first successful page
+    // Note: We already have the first page HTML, but let's re-read if needed or reuse
+    // For simplicity, I'll just reuse the one I got if I can, but I'll re-read to get the full HTML again for page detection
+    const firstPageHtml = await readPage(successUrl);
+    const pageRegex = /href="https:\/\/teleonline\.org\/canales\/[^/]+\/page\/(\d+)\/"/g;
+    let maxPage = 1;
+    let pageMatch;
+    while ((pageMatch = pageRegex.exec(firstPageHtml)) !== null) {
+      const pageNum = parseInt(pageMatch[1]);
+      if (pageNum > maxPage) maxPage = pageNum;
+    }
+
+    console.log(`[TeleOnline] Detected ${maxPage} pages for ${countrySlug}`);
+
+    // 3. Fetch remaining pages
+    const pageLimit = Math.min(maxPage, 20); // Safety limit
+    for (let p = 2; p <= pageLimit; p++) {
+      const pageUrl = `${successUrl}page/${p}/`;
+      const pageHtml = await readPage(pageUrl);
+      if (pageHtml) {
+        extractChannelsFromHtml(pageHtml, countrySlug, allChannels, seen);
+      }
+    }
+  } catch (error) {
+    console.error(`Error fetching channels for ${countrySlug}:`, error);
+  }
+
+  channelsCache.set(cacheKey, allChannels);
+  return allChannels;
+}
+
+// Helper function to extract channels from a page's HTML
+function extractChannelsFromHtml(html: string, countrySlug: string, channels: ChannelInfo[], seen: Set<string>) {
+  const countryName = titleFromSlug(countrySlug);
+  
+  // Extract from article blocks which have title + link + logo
   const articleRegex = /<article[^>]*class="[^"]*article-loop[^"]*"[^>]*>([\s\S]*?)<\/article>/g;
   let artMatch;
 
@@ -118,58 +290,69 @@ export async function getChannelsByCountry(countrySlug: string): Promise<Channel
     const content = artMatch[1];
 
     // Get link/slug
-    const linkMatch = /href="https:\/\/teleonline\.org\/canal\/([^/]+)\/"/.exec(content);
+    const linkMatch = /href=["']https:\/\/teleonline\.org\/canal\/([^/'"]+)\/?["']/.exec(content);
     if (!linkMatch) continue;
     const slug = linkMatch[1];
     if (seen.has(slug)) continue;
     seen.add(slug);
 
     // Get name from <p> tag
-    const nameMatch = /<p[^>]*>([^<]+)<\/p>/.exec(content);
-    const name = nameMatch ? nameMatch[1].trim() : slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    const nameMatch = /<p[^>]*>([^<]+)<\/p>/.exec(content) || /<span[^>]*class=["'][^"']*entry-title[^"']*["'][^>]*>([^<]+)<\/span>/.exec(content);
+    const name = nameMatch ? decodeHtml(nameMatch[1]) : titleFromSlug(slug);
 
     // Get post_id from data attribute
     const postIdMatch = /data-post-id="(\d+)"/.exec(content);
     const post_id = postIdMatch ? parseInt(postIdMatch[1]) : undefined;
 
-    // Get logo
-    const logoMatch = /<img[^>]+src="([^"]+)"/.exec(content);
+    // Get logo from background-image style
+    const logoMatch = /background-image:\s*url\(['"]?([^'")]+)['"]?\)/.exec(content) || /(?:data-src|src)=["']([^"']+\.(?:png|jpe?g|webp|svg)[^"']*)["']/i.exec(content);
     const logo = logoMatch?.[1];
 
     channels.push({
       slug,
       name,
-      country: countrySlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      country: countryName,
       country_slug: countrySlug,
       logo,
       url: `${BASE_URL}/canal/${slug}/`,
       post_id,
     });
   }
-
-  channelsCache.set(cacheKey, channels);
-  return channels;
 }
 
 // Search channels across countries
 export async function searchChannels(query: string): Promise<ChannelInfo[]> {
-  // Search in popular countries
-  const popularCountries = ["espana", "mexico", "argentina", "colombia", "chile", "peru", "estados-unidos", "brasil"];
-
   const allChannels: ChannelInfo[] = [];
-  const lowerQuery = query.toLowerCase();
+  const seen = new Set<string>();
 
-  for (const country of popularCountries) {
-    try {
-      const channels = await getChannelsByCountry(country);
-      const filtered = channels.filter(
-        (ch) => ch.name.toLowerCase().includes(lowerQuery) || ch.slug.includes(lowerQuery)
+  try {
+    for (let page = 1; page <= 3; page++) {
+      const posts = await readJson<WpPost[]>(
+        `${BASE_URL}/wp-json/wp/v2/posts?search=${encodeURIComponent(query)}&per_page=100&page=${page}&_embed=wp:featuredmedia`
       );
-      allChannels.push(...filtered);
-    } catch {
-      continue;
+
+      if (!Array.isArray(posts) || posts.length === 0) break;
+
+      for (const post of posts) {
+        const slug = post.slug || post.link?.match(/\/canal\/([^/]+)\//)?.[1];
+        if (!slug || seen.has(slug) || !post.link?.includes("/canal/")) continue;
+        seen.add(slug);
+
+        allChannels.push({
+          slug,
+          name: decodeHtml(post.title?.rendered || "") || titleFromSlug(slug),
+          country: "TeleOnline",
+          country_slug: "teleonline",
+          logo: getFeaturedImage(post),
+          url: `${BASE_URL}/canal/${slug}/`,
+          post_id: post.id,
+        });
+      }
+
+      if (posts.length < 100) break;
     }
-    if (allChannels.length >= 30) break;
+  } catch (error) {
+    console.warn(`[TeleOnline] WordPress search failed for ${query}:`, error);
   }
 
   return allChannels;

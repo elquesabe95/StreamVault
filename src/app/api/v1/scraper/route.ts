@@ -1,91 +1,260 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchPelispedia, getPelispediaSources } from "@/lib/scrapers/pelispedia";
 import { searchJKAnime, getJKAnimeServers } from "@/lib/scrapers/jkanime";
+import { searchAnimeFLV, getAnimeFLVServers } from "@/lib/scrapers/animeflv";
+import { searchAnimeAV1, getAnimeAV1Episodes, getAnimeAV1Servers } from "@/lib/scrapers/animeav1";
 import { searchAnime1v, getAnime1vEpisodes, getAnime1vEpisodeLinks } from "@/lib/scrapers/anime1v";
+import { searchCuevana, getCuevanaEpisodeUrl, getCuevanaSources } from "@/lib/scrapers/cuevana";
+import { searchPelispedia, getPelispediaEpisodeUrl, getPelispediaSources } from "@/lib/scrapers/pelispedia";
+import { getTeleOnlineStream } from "@/lib/scrapers/teleonline";
+import { getAnimuxStream } from "@/lib/scrapers/animux";
+import { resolveStream } from "@/lib/scrapers/resolver";
+
+type PlaybackType = "hls" | "mp4" | "iframe";
+
+function getPlaybackType(url: string): PlaybackType {
+  if (/\.m3u8(?:[?#].*)?$/i.test(url) || url.includes(".m3u8")) return "hls";
+  if (/\.mp4(?:[?#].*)?$/i.test(url) || url.includes(".mp4")) return "mp4";
+  return "iframe";
+}
+
+async function resolveToPlayableUrls(url: string): Promise<string[]> {
+  const firstPass = await resolveStream(url).catch(() => url);
+  const firstUrls = Array.isArray(firstPass) ? firstPass : [firstPass];
+  const playableUrls: string[] = [];
+
+  for (const firstUrl of firstUrls) {
+    if (getPlaybackType(firstUrl) !== "iframe") {
+      playableUrls.push(firstUrl);
+      continue;
+    }
+
+    const secondPass = await resolveStream(firstUrl).catch(() => firstUrl);
+    const secondUrls = Array.isArray(secondPass) ? secondPass : [secondPass];
+    playableUrls.push(...secondUrls);
+  }
+
+  return playableUrls;
+}
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const source = searchParams.get("source");
-    const query = searchParams.get("query") || "";
-    const type = searchParams.get("type") || "movie";
+    const searchParams = req.nextUrl.searchParams;
+    const query = searchParams.get("query");
+    const provider = searchParams.get("provider")?.toLowerCase();
+    const slug = searchParams.get("slug");
+    const requestedType = searchParams.get("type");
+    const type = requestedType === "tv" ? "series" : requestedType;
+    const requestedSource = searchParams.get("source")?.toLowerCase();
     const season = parseInt(searchParams.get("season") || "1");
     const episode = parseInt(searchParams.get("episode") || "1");
 
-    if (!source || !query) {
-      return NextResponse.json({ success: false, message: "Faltan parámetros" }, { status: 400 });
+    if (provider === "teleonline") {
+      if (!slug) return NextResponse.json({ success: false, message: "Slug required" }, { status: 400 });
+
+      const streamUrl = await getTeleOnlineStream(slug);
+      return NextResponse.json({
+        success: true,
+        sources: streamUrl ? [{
+          url: streamUrl,
+          name: "Servidor 1",
+          lang: "Live",
+          playbackType: getPlaybackType(streamUrl),
+        }] : [],
+      });
     }
 
-    if (source === "pelispedia") {
-      const results = await searchPelispedia(query);
-      if (results.length === 0) {
-        return NextResponse.json({ success: false, message: "No se encontraron resultados en Pelispedia" }, { status: 404 });
-      }
+    if (provider === "animux") {
+      if (!slug) return NextResponse.json({ success: false, message: "Slug required" }, { status: 400 });
 
-      // Find best match (simple title match)
-      const bestMatch = results[0]; // Assuming first result for now
-      const sources = await getPelispediaSources(bestMatch.url);
-      
-      // Filter for Latino if possible
-      const latinoSource = sources.find(s => s.lang === "latino") || sources[0];
-      
-      if (!latinoSource) {
-        return NextResponse.json({ success: false, message: "No se encontraron fuentes de video" }, { status: 404 });
-      }
-
-      // Redirect to the embed URL
-      return NextResponse.redirect(latinoSource.url);
+      const streamUrl = await getAnimuxStream(slug);
+      return NextResponse.json({
+        success: true,
+        sources: streamUrl ? [{
+          url: streamUrl,
+          name: "Servidor 1",
+          lang: "Live",
+          playbackType: getPlaybackType(streamUrl),
+        }] : [],
+      });
     }
 
-    if (source === "jkanime") {
-      const results = await searchJKAnime(query);
-      if (results.length === 0) {
-        return NextResponse.json({ success: false, message: "No se encontró el anime en JKAnime" }, { status: 404 });
-      }
+    if (!query) return NextResponse.json({ success: false, message: "Query required" }, { status: 400 });
 
-      const bestMatch = results[0];
-      const servers = await getJKAnimeServers(bestMatch.slug, episode);
-      
-      if (servers.length === 0) {
-        return NextResponse.json({ success: false, message: "No hay servidores disponibles para este episodio" }, { status: 404 });
-      }
+    const findExactMatch = (results: any[]) => {
+      if (!results || results.length === 0) return null;
+      const q = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const normalizeTitle = (title: string) =>
+        title
+          .replace(/&#39;/g, "'")
+          .replace(/&amp;/g, "&")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim();
+      const exact = results.find(r => normalizeTitle(r.title) === q);
+      if (exact) return exact;
+      return results.find(r => {
+        const t = normalizeTitle(r.title);
+        return t.includes(q) || q.includes(t);
+      }) || results[0];
+    };
 
-      // Use the first server (usually Nozomi or Fembed)
-      return NextResponse.redirect(servers[0].remote);
+    let providers: { name: string; key: string; fn: () => Promise<any[]> }[] = [];
+
+    if (type === "anime") {
+      providers.push(
+        { name: "AnimeAV1", key: "animeav1", fn: async () => {
+          const res = await searchAnimeAV1(query);
+          const match = findExactMatch(res);
+          if (!match) return [];
+          const episodes = await getAnimeAV1Episodes(match.url);
+          const ep = episodes.find(e => e.number === episode) || episodes[episode - 1] || episodes[0];
+          if (!ep) return [];
+          return await getAnimeAV1Servers(ep.url);
+        }},
+        { name: "Anime1v", key: "anime1v", fn: async () => {
+          const res = await searchAnime1v(query);
+          const match = findExactMatch(res);
+          if (!match) return [];
+          const episodes = await getAnime1vEpisodes(match.url);
+          const ep = episodes.find((e: any) =>
+            Number(e.number) === episode ||
+            e.name?.includes(String(episode)) ||
+            e.title?.includes(String(episode))
+          ) || episodes[episode - 1] || episodes[0];
+          if (!ep) return [];
+
+          const data = await getAnime1vEpisodeLinks(ep.url);
+          const dubStreams = data.streamLinks?.DUB || [];
+          const subStreams = data.streamLinks?.SUB || [];
+          const dubDownloads = data.downloadLinks?.DUB || [];
+          const subDownloads = data.downloadLinks?.SUB || data.downloads || [];
+
+          return [
+            ...dubStreams.map(s => ({ url: s.url, server: s.server || "Anime1v", lang: "Latino" })),
+            ...dubDownloads.map(s => ({ url: s.url, server: s.server || "Anime1v", lang: "Latino" })),
+            ...subStreams.map(s => ({ url: s.url, server: s.server || "Anime1v", lang: "Sub" })),
+            ...subDownloads.map(s => ({ url: s.url, server: s.server || "Anime1v", lang: "Sub" })),
+          ];
+        }},
+        { name: "JKAnime", key: "jkanime", fn: async () => {
+          const res = await searchJKAnime(query);
+          const match = findExactMatch(res);
+          return match ? await getJKAnimeServers(match.slug, episode) : [];
+        }},
+        { name: "AnimeFLV", key: "animeflv", fn: async () => {
+          const res = await searchAnimeFLV(query);
+          const match = findExactMatch(res);
+          return match ? await getAnimeFLVServers(match.url, episode) : [];
+        }},
+        { name: "PelisPedia", key: "pelispedia", fn: async () => {
+          const res = await searchPelispedia(query);
+          const match = findExactMatch(res);
+          if (!match) return [];
+          let targetUrl = match.url;
+          if (match.url.includes("/serie/")) {
+            const epUrl = await getPelispediaEpisodeUrl(match.url, season, episode);
+            if (epUrl) targetUrl = epUrl;
+            else return [];
+          }
+          const sources = await getPelispediaSources(targetUrl);
+          return sources.map(source => ({ ...source, lang: "Latino" }));
+        }},
+        { name: "Cuevana", key: "cuevana", fn: async () => {
+          const res = await searchCuevana(query);
+          const match = findExactMatch(res);
+          if (!match) return [];
+          let targetUrl = match.url;
+          if (match.url.includes("/serie/")) {
+            const epUrl = await getCuevanaEpisodeUrl(match.url, season, episode);
+            if (epUrl) targetUrl = epUrl;
+            else return [];
+          }
+          const sources = await getCuevanaSources(targetUrl);
+          return sources.map(source => ({ ...source, lang: "Latino" }));
+        }}
+      );
+    } else {
+      providers.push(
+        { name: "Cuevana", key: "cuevana", fn: async () => {
+          const res = await searchCuevana(query);
+          const match = findExactMatch(res);
+          if (!match) return [];
+          if (type === "series" && !match.url.includes("/serie/")) return [];
+          let targetUrl = match.url;
+          if (type === "series") {
+            const epUrl = await getCuevanaEpisodeUrl(match.url, season, episode);
+            if (epUrl) targetUrl = epUrl;
+            else return [];
+          }
+          return await getCuevanaSources(targetUrl);
+        }},
+        { name: "PelisPedia", key: "pelispedia", fn: async () => {
+          const res = await searchPelispedia(query);
+          const match = findExactMatch(res);
+          if (!match) return [];
+          if (type === "series" && !match.url.includes("/serie/")) return [];
+          let targetUrl = match.url;
+          if (type === "series") {
+            const epUrl = await getPelispediaEpisodeUrl(match.url, season, episode);
+            if (epUrl) targetUrl = epUrl;
+            else return [];
+          }
+          return await getPelispediaSources(targetUrl);
+        }}
+      );
     }
 
-    if (source === "anime1v") {
-      const results = await searchAnime1v(query);
-      if (results.length === 0) {
-        return NextResponse.json(
-          { success: false, message: "No se encontró el anime en Anime1V" },
-          { status: 404 }
-        );
-      }
-      const bestMatch = results[0];
-      const episodes = await getAnime1vEpisodes(bestMatch.url);
-      if (episodes.length === 0 || !episodes[episode - 1]) {
-        return NextResponse.json(
-          { success: false, message: "Episodio no disponible en Anime1V" },
-          { status: 404 }
-        );
-      }
-      const epData = await getAnime1vEpisodeLinks(episodes[episode - 1].url);
-      const sources = epData.downloads || [];
-      if (sources.length === 0) {
-        return NextResponse.json(
-          { success: false, message: "No hay enlaces de descarga para este episodio" },
-          { status: 404 }
-        );
-      }
-      // Devolver la URL del primer enlace (mejor calidad)
-      return NextResponse.redirect(sources[0].url);
+    if (requestedSource) {
+      providers = providers.filter(provider => provider.key === requestedSource);
     }
 
-    return NextResponse.json({ success: false, message: "Fuente no soportada" }, { status: 400 });
+    const finalSources: any[] = [];
+    const seenUrls = new Set<string>();
+    let serverCount = 1;
+
+    for (const provider of providers) {
+      try {
+        const results = await provider.fn();
+        for (const item of results) {
+          const rawUrl = item.url || item.remote;
+          if (!rawUrl) continue;
+
+          const urlsToAdd = await resolveToPlayableUrls(rawUrl);
+
+          for (const fUrl of urlsToAdd) {
+            if (seenUrls.has(fUrl)) continue;
+            seenUrls.add(fUrl);
+
+            const rawLang = item.lang || (type === "anime" ? "Sub" : "Latino");
+            const normalizedLang = String(rawLang).toLowerCase();
+            const langLabel =
+              normalizedLang === "latino" ? "Latino" :
+              normalizedLang === "spanish" ? "Castellano" :
+              normalizedLang === "subbed" ? "Sub" :
+              String(rawLang);
+
+            finalSources.push({
+              url: fUrl,
+              name: `Servidor ${serverCount++}`,
+              lang: langLabel,
+              playbackType: getPlaybackType(fUrl),
+              originalUrl: rawUrl,
+            });
+          }
+        }
+      } catch (e) {
+        console.warn(`[Scraper] ${provider.name} failed`, e);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      sources: finalSources
+    });
 
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Error en el scraper";
-    return NextResponse.json({ success: false, message }, { status: 500 });
+    console.error("[Scraper] Fatal error", error);
+    return NextResponse.json({ success: false, message: "Error" }, { status: 500 });
   }
 }

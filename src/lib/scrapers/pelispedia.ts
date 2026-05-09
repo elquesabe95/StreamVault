@@ -1,55 +1,32 @@
-import ZAI from "z-ai-web-dev-sdk";
-import { extractAttribute } from "./utils";
+import { readPage } from "./client";
 
 const BASE_URL = "https://pelispedia.mov";
 
-export interface PelispediaResult {
-  title: string;
-  url: string;
-  image?: string;
-  year?: string;
-  type: "movie" | "tv";
-}
-
-export interface VideoSource {
+export interface PelisSource {
   server: string;
   url: string;
-  lang: "latino" | "espanol" | "subtitulado";
+  lang: "latino" | "spanish" | "subbed";
 }
 
-async function readPage(url: string): Promise<string> {
-  const zai = await ZAI.create();
-  const result = await zai.functions.invoke("page_reader", { url });
-  return result.data.html || "";
-}
-
-/**
- * Search for movies or series on Pelispedia
- */
-export async function searchPelispedia(query: string): Promise<PelispediaResult[]> {
+export async function searchPelispedia(query: string) {
+  // Use the correct search pattern: /search?s=query
   const searchUrl = `${BASE_URL}/search?s=${encodeURIComponent(query)}`;
   const html = await readPage(searchUrl);
   
-  const results: PelispediaResult[] = [];
+  const results: { title: string; url: string; poster?: string }[] = [];
   
-  // Extract results using regex
-  // Looking for <article> blocks in search results
-  const articleRegex = /<article[^>]*>([\s\S]*?)<\/article>/g;
+  // Robust regex that doesn't break on nested divs
+  const itemRegex = /movie-card[\s\S]*?href=["']([^"']+)["'][\s\S]*?<h4[^>]*>([^<]+)<\/h4>/g;
   let match;
   
-  while ((match = articleRegex.exec(html)) !== null) {
-    const content = match[1];
+  while ((match = itemRegex.exec(html)) !== null) {
+    const url = match[1];
+    const title = match[2];
     
-    const urlMatch = /href="([^"]+)"/.exec(content);
-    const titleMatch = /class="title"[^>]*>([^<]+)<\/h2>/.exec(content);
-    const imgMatch = /src="([^"]+)"/.exec(content);
-    
-    if (urlMatch && titleMatch) {
+    if (url && title) {
       results.push({
-        title: titleMatch[1].trim(),
-        url: urlMatch[1],
-        image: imgMatch ? imgMatch[1] : undefined,
-        type: urlMatch[1].includes("/pelicula/") ? "movie" : "tv"
+        title: title.trim(),
+        url: url.startsWith("http") ? url : `${BASE_URL}${url}`
       });
     }
   }
@@ -58,45 +35,94 @@ export async function searchPelispedia(query: string): Promise<PelispediaResult[
 }
 
 /**
- * Extract video sources from a Pelispedia movie/episode page
+ * Extract video sources from a PelisPedia page
  */
-export async function getPelispediaSources(url: string): Promise<VideoSource[]> {
-  const html = await readPage(url);
-  const sources: VideoSource[] = [];
+export async function getPelispediaSources(pageUrl: string): Promise<PelisSource[]> {
+  const html = await readPage(pageUrl);
+  const sources: PelisSource[] = [];
   
-  // Pelispedia stores server links in a specific container or script
-  // Looking for server buttons/links
-  // Example pattern based on typical WordPress movie themes:
-  // <li class="dooplay_player_option" data-type="movie" data-post="123" data-nume="1">
+  // 1. Extract server names from buttons (try multiple patterns)
+  const serverNames: string[] = [];
+  const serverBtnRegex = /<button[^>]+class="[^"]*server[^"]*"[^>]*>([\s\S]*?)<\/button>/gi;
+  let sMatch;
+  while ((sMatch = serverBtnRegex.exec(html)) !== null) {
+    const text = sMatch[1].replace(/<[^>]+>/g, '').trim();
+    if (text) serverNames.push(text);
+  }
+
+  // 2. Extract iframes from player divs (handles nested divs by scanning for src)
+  const playerDivRegex = /<div[^>]+id="player-(\d+)"[^>]*>[\s\S]*?src=["']((?:https?:)?\/\/[^"']+)["']/g;
+  let pMatch;
   
-  const serverOptionRegex = /<li[^>]*class="[^"]*dooplay_player_option[^"]*"[^>]*data-type="([^"]*)"[^>]*data-post="([^"]*)"[^>]*data-nume="([^"]*)"[^>]*>([\s\S]*?)<\/li>/g;
-  let match;
-  
-  while ((match = serverOptionRegex.exec(html)) !== null) {
-    const [_, type, postId, nume, content] = match;
+  while ((pMatch = playerDivRegex.exec(html)) !== null) {
+    const index = parseInt(pMatch[1]);
+    let url = pMatch[2];
+    if (url.startsWith("//")) url = "https:" + url;
     
-    // Extract server name and language
-    const serverNameMatch = /<span class="title">([^<]+)<\/span>/.exec(content);
-    const langMatch = /<span class="server">([^<]+)<\/span>/.exec(content);
-    
-    const serverName = serverNameMatch ? serverNameMatch[1].trim() : "Unknown";
-    const langRaw = langMatch ? langMatch[1].toLowerCase() : "";
-    
-    let lang: VideoSource["lang"] = "latino";
-    if (langRaw.includes("lat") || langRaw.includes("mex")) lang = "latino";
-    else if (langRaw.includes("esp")) lang = "espanol";
-    else if (langRaw.includes("sub")) lang = "subtitulado";
-    
-    // The actual URL often requires an AJAX call or is an iframe link
-    // For now, we'll extract the direct iframe if present or construct the embed URL
-    const embedUrl = `${BASE_URL}/?player=${type}&post=${postId}&nume=${nume}`;
+    // Skip non-video resources
+    if (url.includes('.js') || url.includes('cloudflare') || url.includes('google') || url.includes('.css')) continue;
     
     sources.push({
-      server: serverName,
-      url: embedUrl,
-      lang
+      server: serverNames[index] || `Servidor ${index + 1}`,
+      url: url,
+      lang: "latino"
+    });
+  }
+  
+  // 3. Fallback: catch any remaining iframes with video-like URLs
+  const iframeRegex = /<iframe[^>]+src=["']((?:https?:)?\/\/[^"']+)["']/gi;
+  let iMatch;
+  while ((iMatch = iframeRegex.exec(html)) !== null) {
+    let url = iMatch[1];
+    if (url.startsWith("//")) url = "https:" + url;
+    if (url.includes('.js') || url.includes('cloudflare') || url.includes('google')) continue;
+    
+    // If it's a known multi-server host, we'll handle it in the resolver
+    sources.push({
+      server: "Multi-Server",
+      url: url,
+      lang: "latino"
     });
   }
   
   return sources;
+}
+
+/**
+ * Get the episode URL from a series page
+ */
+export async function getPelispediaEpisodeUrl(seriesUrl: string, season: number, episode: number): Promise<string | null> {
+  try {
+    const html = await readPage(seriesUrl);
+    
+    // Primary pattern: /serie/slug/temporada/S/capitulo/E (confirmed from live site)
+    const primaryPattern = new RegExp(`/serie/[^"]+/temporada/${season}/capitulo/${episode}[^"]*`, 'i');
+    const primaryMatch = primaryPattern.exec(html);
+    if (primaryMatch) {
+      return `${BASE_URL}${primaryMatch[0]}`;
+    }
+    
+    // Secondary patterns used by some sites
+    const searchPatterns = [
+      `-${season}x${episode}`,
+      `season-${season}-episode-${episode}`,
+      `temporada-${season}-episodio-${episode}`,
+    ];
+    
+    const linksRegex = /href="([^"]+)"/g;
+    let match;
+    while ((match = linksRegex.exec(html)) !== null) {
+      const url = match[1];
+      for (const pattern of searchPatterns) {
+        if (url.includes(pattern)) {
+          return url.startsWith("http") ? url : `${BASE_URL}${url}`;
+        }
+      }
+    }
+    
+    // No guessing.
+  } catch (e) {
+    console.error("Pelispedia episode fetch failed:", e);
+  }
+  return null;
 }

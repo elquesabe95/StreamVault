@@ -215,13 +215,37 @@ export default function PlayerPage() {
     let cancelled = false;
     fetch(`${API_BASE}/player?type=${type}&id=${id}&season=${season}&episode=${episode}`)
       .then((r) => r.json())
-      .then((json) => {
+      .then(async (json) => {
         if (cancelled) return;
         if (!json.success) {
           dispatch({ type: "FETCH_ERROR", message: json.message || "Error cargando datos" });
           return;
         }
         const pd = json.data as PlayerData;
+        const scraperSources = pd.sources.filter(source => source.url.startsWith("/api/v1/scraper"));
+        if (scraperSources.length > 0) {
+          const resolvedGroups = await Promise.all(
+            scraperSources.map(async source => {
+              try {
+                const res = await fetch(source.url);
+                const data = await res.json();
+                if (!data.sources || data.sources.length === 0) return [];
+                return data.sources.map((scrapedSource: { url: string; name?: string }, index: number) => ({
+                  name: `${source.name}-${index}`,
+                  label: scrapedSource.name || `${source.label} ${index + 1}`,
+                  url: scrapedSource.url,
+                }));
+              } catch {
+                return [];
+              }
+            })
+          );
+          const passthroughSources = pd.sources.filter(source => !source.url.startsWith("/api/v1/scraper"));
+          const resolvedSources = resolvedGroups.flat();
+          if (resolvedSources.length > 0) {
+            pd.sources = [...resolvedSources, ...passthroughSources];
+          }
+        }
         dispatch({ type: "FETCH_SUCCESS", payload: pd });
         setSources(pd.sources);
         if (pd.sources.length > 0) setActiveSource(pd.sources[0].url);

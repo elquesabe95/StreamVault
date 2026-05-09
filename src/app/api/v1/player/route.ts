@@ -100,23 +100,15 @@ export async function GET(req: NextRequest) {
             episode_count: s.episode_count,
           })),
           sources: sources.map(s => {
+            const baseParams = `&query=${encodeURIComponent(show.name)}&episode=${episode}&season=${season}&tmdbId=${id}&type=series`;
             if (s.name === "pelispedia") {
-              return {
-                ...s,
-                url: `/api/v1/scraper?source=pelispedia&query=${encodeURIComponent(show.name)}&episode=${episode}`,
-              };
+              return { ...s, url: `/api/v1/scraper?source=pelispedia${baseParams}` };
             }
             if (s.name === "jkanime") {
-              return {
-                ...s,
-                url: `/api/v1/scraper?source=jkanime&query=${encodeURIComponent(show.name)}&episode=${episode}`,
-              };
+              return { ...s, url: `/api/v1/scraper?source=jkanime${baseParams}` };
             }
             if (s.name === "anime1v") {
-              return {
-                ...s,
-                url: `/api/v1/scraper?source=anime1v&query=${encodeURIComponent(show.name)}&episode=${episode}`,
-              };
+              return { ...s, url: `/api/v1/scraper?source=anime1v${baseParams}` };
             }
             return s;
           }),
@@ -159,7 +151,7 @@ export async function GET(req: NextRequest) {
           runtime: movie.runtime,
           sources: sources.map(s => {
             if (s.name === "pelispedia") {
-              return { ...s, url: `/api/v1/scraper?source=pelispedia&query=${encodeURIComponent(movie.title)}&type=movie` };
+              return { ...s, url: `/api/v1/scraper?source=pelispedia&query=${encodeURIComponent(movie.title)}&type=movie&tmdbId=${id}` };
             }
             return s;
           }),

@@ -13,40 +13,72 @@ interface Anime1vEpisode {
 }
 
 interface Anime1vEpisodeData {
-  downloads: { quality: string; url: string }[];
+  downloads?: { quality?: string; url: string; server?: string }[];
+  streamLinks?: {
+    SUB?: { server?: string; url: string; quality?: string }[];
+    DUB?: { server?: string; url: string; quality?: string }[];
+  };
+  downloadLinks?: {
+    SUB?: { server?: string; url: string; quality?: string }[];
+    DUB?: { server?: string; url: string; quality?: string }[];
+  };
+  variants?: {
+    SUB?: number;
+    DUB?: number;
+  };
 }
 
-export async function searchAnime1v(query: string): Promise<Anime1vSearchResult[]> {
-  const params = new URLSearchParams({ q: query });
+function authParams(params: URLSearchParams) {
   if (!ANIME1V_AUTH_DISABLED && ANIME1V_API_KEY) {
     params.set("apiKey", ANIME1V_API_KEY);
   }
-  const res = await fetch(`${ANIME1V_BASE_URL}/api/v1/anime/search?${params.toString()}`);
+  return params;
+}
+
+function authHeaders(): HeadersInit {
+  return !ANIME1V_AUTH_DISABLED && ANIME1V_API_KEY
+    ? { "X-API-Key": ANIME1V_API_KEY }
+    : {};
+}
+
+function unwrapData(data: any) {
+  return data?.data || data;
+}
+
+export async function searchAnime1v(query: string): Promise<Anime1vSearchResult[]> {
+  const params = authParams(new URLSearchParams({ q: query, domain: "animeav1.com" }));
+  const res = await fetch(`${ANIME1V_BASE_URL}/api/v1/anime/search?${params.toString()}`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`Anime1V search error ${res.status}`);
   const data = await res.json();
   if (Array.isArray(data)) return data;
-  if (data.results) return data.results;
-  if (data.data) return data.data;
+  const payload = unwrapData(data);
+  if (Array.isArray(payload)) return payload;
+  if (payload.results) return payload.results;
   return [];
 }
 
 export async function getAnime1vEpisodes(animeUrl: string): Promise<Anime1vEpisode[]> {
-  const params = new URLSearchParams({ url: animeUrl });
-  if (!ANIME1V_AUTH_DISABLED && ANIME1V_API_KEY) {
-    params.set("apiKey", ANIME1V_API_KEY);
-  }
-  const res = await fetch(`${ANIME1V_BASE_URL}/api/v1/anime/info?${params.toString()}`);
+  const params = authParams(new URLSearchParams({ url: animeUrl }));
+  const res = await fetch(`${ANIME1V_BASE_URL}/api/v1/anime/info?${params.toString()}`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`Anime1V info error ${res.status}`);
   const data = await res.json();
-  return data.episodes || [];
+  const payload = unwrapData(data);
+  return payload.episodes || [];
 }
 
 export async function getAnime1vEpisodeLinks(episodeUrl: string): Promise<Anime1vEpisodeData> {
-  const params = new URLSearchParams({ url: episodeUrl });
-  if (!ANIME1V_AUTH_DISABLED && ANIME1V_API_KEY) {
-    params.set("apiKey", ANIME1V_API_KEY);
-  }
-  const res = await fetch(`${ANIME1V_BASE_URL}/api/v1/anime/episode?${params.toString()}`);
+  const params = authParams(new URLSearchParams({
+    url: episodeUrl,
+    excludeServers: "mega,1fichier",
+  }));
+  const res = await fetch(`${ANIME1V_BASE_URL}/api/v1/anime/episode?${params.toString()}`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`Anime1V episode error ${res.status}`);
-  return res.json();
+  const data = await res.json();
+  return unwrapData(data);
 }

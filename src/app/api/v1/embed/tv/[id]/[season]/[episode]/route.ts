@@ -21,7 +21,19 @@ export async function GET(
 
     const show = await getTvDetails(tvId);
     const primaryEmbed = getPrimaryEmbed("tv", tvId, seasonNum, episodeNum);
-    const allEmbeds = getAllEmbeds("tv", tvId, seasonNum, episodeNum);
+    const allEmbeds = getAllEmbeds("tv", tvId, seasonNum, episodeNum).map(source => {
+      const baseParams = `&query=${encodeURIComponent(show.name)}&episode=${episodeNum}&season=${seasonNum}&tmdbId=${tvId}`;
+      if (source.name === "pelispedia") {
+        return { ...source, url: `/api/v1/scraper?source=pelispedia&type=series${baseParams}` };
+      }
+      if (source.name === "jkanime") {
+        return { ...source, url: `/api/v1/scraper?source=jkanime&type=anime${baseParams}` };
+      }
+      if (source.name === "anime1v") {
+        return { ...source, url: `/api/v1/scraper?source=anime1v&type=anime${baseParams}` };
+      }
+      return source;
+    });
 
     return NextResponse.json({
       success: true,

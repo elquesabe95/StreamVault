@@ -36,54 +36,6 @@ const embedSources: EmbedSource[] = [
     priority: 0,
   },
   {
-    name: "vidsrc",
-    label: "VidSrc",
-    type: "both",
-    getMovieUrl: (id) => `https://vidsrc.xyz/embed/movie/${id}`,
-    getTvUrl: (id, s, e) => `https://vidsrc.xyz/embed/tv/${id}/${s}/${e}`,
-    priority: 1,
-  },
-  {
-    name: "vidsrc-cc",
-    label: "VidSrc CC",
-    type: "both",
-    getMovieUrl: (id) => `https://vidsrc.cc/v2/embed/movie/${id}`,
-    getTvUrl: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`,
-    priority: 2,
-  },
-  {
-    name: "vidsrc-icu",
-    label: "VidSrc ICU",
-    type: "both",
-    getMovieUrl: (id) => `https://vidsrc.icu/embed/movie/${id}`,
-    getTvUrl: (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}`,
-    priority: 3,
-  },
-  {
-    name: "multiembed",
-    label: "MultiEmbed",
-    type: "movie",
-    getMovieUrl: (id) => `https://multiembed.mov/?video_id=${id}&tmdb=1`,
-    getTvUrl: () => "",
-    priority: 4,
-  },
-  {
-    name: "embed",
-    label: "2Embed",
-    type: "both",
-    getMovieUrl: (id) => `https://www.2embed.cc/embed/${id}`,
-    getTvUrl: (id, s, e) => `https://www.2embed.cc/embedtv/${id}/${s}/${e}`,
-    priority: 5,
-  },
-  {
-    name: "automovie",
-    label: "AutoMovie",
-    type: "both",
-    getMovieUrl: (id) => `https://automovie.space/embed/movie/${id}`,
-    getTvUrl: (id, s, e) => `https://automovie.space/embed/tv/${id}/${s}/${e}`,
-    priority: 6,
-  },
-  {
     name: "moviesapi",
     label: "MoviesAPI",
     type: "movie",
@@ -109,9 +61,9 @@ export function getPrimaryEmbed(type: "movie" | "tv", tmdbId: number, season?: n
 }
 
 export function getAllEmbeds(type: "movie" | "tv", tmdbId: number, season?: number, episode?: number): { name: string; label: string; url: string }[] {
-  return getEmbedSources(type).map((source) => ({
+  return getEmbedSources(type).map((source, index) => ({
     name: source.name,
-    label: source.label,
+    label: `Servidor ${index + 1}`,
     url: type === "movie" ? source.getMovieUrl(tmdbId) : source.getTvUrl(tmdbId, season || 1, episode || 1),
   }));
 }

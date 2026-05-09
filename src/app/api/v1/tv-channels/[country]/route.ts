@@ -16,7 +16,7 @@ export async function GET(
       );
     }
 
-    let channels = [];
+    let channels: any[] = [];
     if (country === "animux") {
       const animuxData = await getAnimuxChannels();
       channels = animuxData.map(ch => ({
@@ -25,7 +25,9 @@ export async function GET(
         country: "Animux",
         country_slug: "animux",
         logo: ch.logo,
-        url: ch.url
+        url: ch.url,
+        category: ch.category,
+        provider: "Animux"
       }));
     } else {
       channels = await getChannelsByCountry(country);

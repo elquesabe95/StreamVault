@@ -543,6 +543,36 @@ export default function Home() {
       }
     }
 
+    const resolveScraperSources = async (embedSources: EmbedSource[]) => {
+      const scraperSources = embedSources.filter(source => source.url.startsWith("/api/v1/scraper"));
+      const passthroughSources = embedSources.filter(source => !source.url.startsWith("/api/v1/scraper"));
+      if (scraperSources.length === 0) return embedSources;
+
+      const resolvedGroups = await Promise.all(
+        scraperSources.map(async source => {
+          try {
+            const res = await fetch(source.url);
+            const data = await res.json();
+            if (!data.sources || data.sources.length === 0) return [];
+            return data.sources.map((scrapedSource: { url: string; name?: string; lang?: string }, index: number) => ({
+              name: `${source.name}-${index}`,
+              label: scrapedSource.name || `${source.label} ${index + 1}`,
+              url: scrapedSource.url,
+            }));
+          } catch {
+            return [];
+          }
+        })
+      );
+
+      const resolvedSources = resolvedGroups.flat();
+      const mergedSources = resolvedSources.length > 0 ? [...resolvedSources, ...passthroughSources] : embedSources;
+      return mergedSources.map((source, index) => ({
+        ...source,
+        label: `Servidor ${index + 1}`,
+      }));
+    };
+
     /* Get embed sources */
     let sources: EmbedSource[] = [];
     let embedUrl = "";
@@ -558,6 +588,7 @@ export default function Home() {
         );
         sources = data.data.sources;
       }
+      sources = await resolveScraperSources(sources);
       if (sources.length > 0) embedUrl = sources[0].url;
     } catch {
       /* noop */
@@ -974,7 +1005,7 @@ function Header({
   searchInputRef: React.RefObject<HTMLInputElement | null>;
   searchContainerRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const navItems = ["Inicio", "Series", "Anime", "Peliculas", "Mi Lista"];
+  const navItems = ["Inicio", "Series", "Anime", "Peliculas", "TV en Vivo", "Mi Lista"];
 
   return (
     <header
@@ -992,6 +1023,9 @@ function Header({
             {navItems.map((label, i) => (
               <button
                 key={label}
+                onClick={() => {
+                  if (label === "TV en Vivo") window.location.href = "/tv";
+                }}
                 className={`text-sm transition-colors duration-200 hover:text-white ${
                   i === 0 ? "text-white font-semibold" : "text-[#b3b3b3]"
                 }`}
@@ -1109,7 +1143,7 @@ function Header({
    ════════════════════════════════════════════════════════════════ */
 
 function MobileMenu({ onClose }: { onClose: () => void }) {
-  const items = ["Inicio", "Series", "Anime", "Peliculas", "Mi Lista"];
+  const items = ["Inicio", "Series", "Anime", "Peliculas", "TV en Vivo", "Mi Lista"];
   return (
     <motion.div
       initial={{ opacity: 0, x: "100%" }}
@@ -1122,7 +1156,10 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
         {items.map((label, i) => (
           <button
             key={label}
-            onClick={onClose}
+            onClick={() => {
+              if (label === "TV en Vivo") window.location.href = "/tv";
+              onClose();
+            }}
             className={`text-left text-lg py-3 border-b border-white/5 transition-colors ${
               i === 0 ? "text-white font-semibold" : "text-[#b3b3b3] hover:text-white"
             }`}
