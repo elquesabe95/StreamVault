@@ -64,24 +64,30 @@ function findMp4InText(text: string): string | null {
  * Extract dataLink array from Master Embed pages
  */
 function extractDataLink(html: string): any[] | null {
-  // Match: let/var/const dataLink = [{...}];
-  const patterns = [
-    /(?:let|var|const)\s+dataLink\s*=\s*(\[[\s\S]*?\]);/,
-    /window\.dataLink\s*=\s*(\[[\s\S]*?\]);/,
-    /dataLink\s*=\s*(\[[\s\S]*?\]);/,
-  ];
-  for (const pattern of patterns) {
-    const m = pattern.exec(html);
-    if (m) {
-      try {
-        const parsed = JSON.parse(m[1]);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {
-        console.warn(`[Resolver] dataLink JSON parse failed: ${(e as Error).message}`);
-      }
-    }
+  const idx = html.indexOf('dataLink');
+  if (idx < 0) return null;
+
+  const bracketStart = html.indexOf('[', idx);
+  if (bracketStart < 0) return null;
+
+  let depth = 0;
+  let endIdx = -1;
+  for (let i = bracketStart; i < html.length; i++) {
+    if (html[i] === '[') depth++;
+    else if (html[i] === ']') depth--;
+    if (depth === 0) { endIdx = i; break; }
   }
-  return null;
+
+  if (endIdx < 0) return null;
+
+  try {
+    const jsonStr = html.substring(bracketStart, endIdx + 1);
+    const parsed = JSON.parse(jsonStr);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch (e) {
+    console.warn(`[Resolver] dataLink JSON parse failed`);
+    return null;
+  }
 }
 
 export async function resolveStream(url: string): Promise<string | string[]> {
