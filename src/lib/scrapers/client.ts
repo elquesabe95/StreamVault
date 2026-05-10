@@ -1,99 +1,87 @@
 import { spawnSync } from "child_process";
 
 function buildHeaders(customHeaders?: Record<string, string>): Record<string, string> {
-  const userAgents = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
-    "Mozilla/5.0 (Apple) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
-  ];
   return {
-    "User-Agent": userAgents[Math.floor(Math.random() * userAgents.length)],
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-    "Referer": "https://www.google.com/",
-    "Cache-Control": "no-cache",
     ...customHeaders
   };
 }
 
 async function tryFetch(url: string, headers: Record<string, string>, timeout: number): Promise<string> {
   try {
-    const response = await fetch(url, {
-      headers,
-      signal: AbortSignal.timeout(timeout)
-    });
-    if (response.ok) {
-      const text = await response.text();
-      if (text && text.length > 300) return text;
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(timeout), redirect: "follow" });
+    if (res.ok) {
+      const text = await res.text();
+      if (text && text.length > 500) return text;
     }
   } catch {}
   return "";
 }
 
-function tryCurl(url: string, headers: Record<string, string>): string {
+function tryCurl(url: string, userAgent: string): string {
   try {
-    const curlArgs = ["-s", "-L", "--connect-timeout", "4", "--max-time", "8"];
-    Object.entries(headers).forEach(([k, v]) => {
-      curlArgs.push("-H", `${k}: ${v}`);
-    });
-    curlArgs.push(url);
-    const curlExec = process.platform === "win32" ? "curl.exe" : "curl";
-    const result = spawnSync(curlExec, curlArgs, {
-      encoding: "utf8",
-      maxBuffer: 1024 * 1024 * 10,
-      windowsHide: true
-    });
-    if (result.stdout && result.stdout.length > 200) return result.stdout;
+    const args = ["-s", "-L", "--max-time", "10", "-A", userAgent, url];
+    const result = spawnSync("curl", args, { encoding: "utf8", maxBuffer: 5 * 1024 * 1024 });
+    if (result.stdout?.length > 300) return result.stdout;
   } catch {}
   return "";
 }
 
-const PROXY_URL = "https://api.allorigins.win/raw?url=";
+function isCloudflareChallenge(html: string): boolean {
+  return html.includes("cf-browser-verify") ||
+    html.includes("_cf_chl_opt") ||
+    html.includes("challenge-platform") ||
+    (html.includes("Checking your browser") && html.length < 2000) ||
+    (html.includes("Just a moment") && html.length < 2000);
+}
 
-/**
- * ULTRA-ROBUST page reader.
- * 1. Try direct fetch (fast, no proxy overhead)
- * 2. Try direct curl (bypasses some blocks)
- * 3. Try proxy fetch (last resort, slower)
- */
+const PROXIES = [
+  "https://api.allorigins.win/raw?url=",
+  "https://api.codetabs.com/v1/proxy?quest=",
+  "https://corsproxy.io/?",
+];
+
 export async function readPage(url: string, customHeaders?: Record<string, string>, useProxy: boolean = false): Promise<string> {
-  console.log(`[readPage] ${url}`);
-
   const headers = buildHeaders(customHeaders);
+  const userAgent = headers["User-Agent"];
 
-  // 1. Direct fetch — fastest path (7s timeout, Render-friendly)
-  let html = await tryFetch(url, headers, 7000);
-  if (html) { console.log(`[readPage] Direct OK (${html.length}b)`); return html; }
+  // 1. Direct fetch — fastest
+  let html = await tryFetch(url, headers, 8000);
+  if (html && !isCloudflareChallenge(html)) {
+    console.log(`[readPage] Direct (${html.length}b): ${url.substring(0, 60)}`);
+    return html;
+  }
+  if (html) console.warn(`[readPage] Cloudflare detected on direct`);
 
-  // 2. Direct curl — bypasses some blocks
-  html = tryCurl(url, headers);
-  if (html) { console.log(`[readPage] Curl OK (${html.length}b)`); return html; }
-
-  // 3. Proxy fallback — only if enabled and direct failed
-  if (useProxy) {
-    const proxyUrl = `${PROXY_URL}${encodeURIComponent(url)}`;
-    html = await tryFetch(proxyUrl, headers, 8000);
-    if (html) { console.log(`[readPage] Proxy OK (${html.length}b)`); return html; }
-
-    html = tryCurl(proxyUrl, headers);
-    if (html) { console.log(`[readPage] Proxy+Curl OK (${html.length}b)`); return html; }
+  // 2. Direct curl — bypasses some JS challenges
+  html = tryCurl(url, userAgent);
+  if (html && !isCloudflareChallenge(html)) {
+    console.log(`[readPage] curl (${html.length}b)`);
+    return html;
   }
 
-  console.warn(`[readPage] FAILED: ${url}`);
+  // 3. Proxy fallback — try multiple proxies
+  if (useProxy) {
+    for (const proxy of PROXIES) {
+      const proxyUrl = proxy + encodeURIComponent(url);
+      html = await tryFetch(proxyUrl, headers, 10000);
+      if (html && !isCloudflareChallenge(html) && html.length > 500) {
+        console.log(`[readPage] Proxy OK: ${proxy.substring(0, 30)} (${html.length}b)`);
+        return html;
+      }
+    }
+  }
+
+  console.warn(`[readPage] FAILED after all attempts: ${url.substring(0, 80)}`);
   return "";
 }
 
-/**
- * Fetches and parses JSON from a URL
- */
 export async function readJson<T = any>(url: string): Promise<T | null> {
   try {
     const isAnimux = url.includes("animux.site");
-    
-    // For Animux, we need VERY specific headers to avoid getting HTML
-    const headers: Record<string, string> = { 
+    const headers: Record<string, string> = {
       "Accept": "application/json, text/plain, */*",
       "Accept-Language": "es-419,es;q=0.9,en;q=0.8",
     };
@@ -101,70 +89,40 @@ export async function readJson<T = any>(url: string): Promise<T | null> {
     if (isAnimux) {
       headers["Referer"] = "https://animux.site/canales";
       headers["Origin"] = "https://animux.site";
-      headers["Sec-Ch-Ua"] = '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"';
-      headers["Sec-Ch-Ua-Mobile"] = "?0";
-      headers["Sec-Ch-Ua-Platform"] = '"Windows"';
-      headers["Sec-Fetch-Dest"] = "empty";
-      headers["Sec-Fetch-Mode"] = "cors";
-      headers["Sec-Fetch-Site"] = "same-origin";
-      headers["X-Requested-With"] = "XMLHttpRequest";
     }
 
     const text = await readPage(url, headers);
     if (!text) return null;
-    
-    // Safety check: if we got HTML instead of JSON, we might be getting a challenge
-    // or the site is redirecting to home. Try to extract JSON from the text anyway.
+
     const isHtml = text.trim().toLowerCase().startsWith("<!doctype") || text.trim().toLowerCase().startsWith("<html");
-    
     if (isHtml) {
       console.warn(`[readJson] Received HTML from ${url}. Attempting regex extraction...`);
     }
 
     try {
-      // Direct parse if possible
-      if (!isHtml) {
-        return JSON.parse(text.trim()) as T;
-      }
-    } catch (e) {
-      // Fall through to regex extraction
-    }
+      if (!isHtml) return JSON.parse(text.trim()) as T;
+    } catch {}
 
-    // Regex-based recovery for malformed or embedded payloads
-    // We look for anything that looks like an array of objects or a large object
     const jsonMatch = text.match(/(\[\s*\{[\s\S]*\}\s*\]|\{\s*"channels"[\s\S]*\})/);
     if (jsonMatch) {
-      try {
-        console.log(`[readJson] Regex match found for ${url}, attempting to parse...`);
-        return JSON.parse(jsonMatch[0]) as T;
-      } catch (parseError) {
-        console.warn(`[readJson] Regex match parse failed for ${url}`);
-      }
+      try { return JSON.parse(jsonMatch[0]) as T; } catch {}
     }
 
-    // Even more aggressive extraction: find the longest string between [ ] or { }
     const allMatches = text.match(/\[[\s\S]*?\]|\{[\s\S]*?\}/g);
     if (allMatches) {
-      const sortedMatches = allMatches.sort((a, b) => b.length - a.length);
-      for (const match of sortedMatches) {
-        if (match.length < 50) continue; // Skip small fragments
+      for (const match of allMatches.sort((a, b) => b.length - a.length)) {
+        if (match.length < 50) continue;
         try {
           const parsed = JSON.parse(match);
-          if (Array.isArray(parsed) || parsed.channels || parsed.streams) {
-            console.log(`[readJson] Aggressive match success for ${url} (length: ${match.length})`);
-            return parsed as T;
-          }
-        } catch (e) {
-          // Continue to next match
-        }
+          if (Array.isArray(parsed) || parsed.channels || parsed.streams) return parsed as T;
+        } catch {}
       }
     }
 
     if (isHtml) return null;
-    throw new Error("Could not parse JSON even with regex");
-    
+    throw new Error("Could not parse JSON");
   } catch (e) {
-    console.error(`[readJson] Error parsing JSON from ${url}:`, e);
+    console.error(`[readJson] Error:`, (e as Error).message);
     return null;
   }
 }

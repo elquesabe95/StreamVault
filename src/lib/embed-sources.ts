@@ -1,4 +1,4 @@
-// Embed source providers — fast iframe sources (no scraping needed) + scrapers as fallback
+// Embed source providers — Spanish-language scrapers
 
 export interface EmbedSource {
   name: string;
@@ -6,93 +6,18 @@ export interface EmbedSource {
   type: "movie" | "tv" | "both";
   getMovieUrl: (tmdbId: number) => string;
   getTvUrl: (tmdbId: number, season: number, episode: number) => string;
-  priority: number; // lower = higher priority
+  priority: number;
   needsScraping?: boolean;
 }
 
 const embedSources: EmbedSource[] = [
-  // ═══ FAST IFRAME SOURCES (instant, no scraping) ═══
-  {
-    name: "vidsrc-me",
-    label: "VidSrc",
-    type: "both",
-    getMovieUrl: (id) => `https://vidsrc.me/embed/movie?tmdb=${id}`,
-    getTvUrl: (id, s, e) => `https://vidsrc.me/embed/tv?tmdb=${id}&season=${s}&episode=${e}`,
-    priority: 1,
-    needsScraping: false,
-  },
-  {
-    name: "vidsrc-pro",
-    label: "VidSrc PRO",
-    type: "both",
-    getMovieUrl: (id) => `https://vidsrc.pro/embed/movie/${id}`,
-    getTvUrl: (id, s, e) => `https://vidsrc.pro/embed/tv/${id}/${s}/${e}`,
-    priority: 2,
-    needsScraping: false,
-  },
-  {
-    name: "vidsrc-icu",
-    label: "VidSrc ICU",
-    type: "both",
-    getMovieUrl: (id) => `https://vidsrc.icu/embed/movie/${id}`,
-    getTvUrl: (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}`,
-    priority: 3,
-    needsScraping: false,
-  },
-  {
-    name: "2embed",
-    label: "2Embed",
-    type: "both",
-    getMovieUrl: (id) => `https://www.2embed.cc/embed/${id}`,
-    getTvUrl: (id, s, e) => `https://www.2embed.cc/embedtv/${id}&s=${s}&e=${e}`,
-    priority: 4,
-    needsScraping: false,
-  },
-  {
-    name: "embed-su",
-    label: "EmbedSU",
-    type: "both",
-    getMovieUrl: (id) => `https://embed.su/embed/movie/${id}`,
-    getTvUrl: (id, s, e) => `https://embed.su/embed/tv/${id}/${s}/${e}`,
-    priority: 5,
-    needsScraping: false,
-  },
-  {
-    name: "vidlink",
-    label: "VidLink",
-    type: "both",
-    getMovieUrl: (id) => `https://vidlink.pro/movie/${id}`,
-    getTvUrl: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}`,
-    priority: 6,
-    needsScraping: false,
-  },
-  {
-    name: "smashystream",
-    label: "SmashyStream",
-    type: "both",
-    getMovieUrl: (id) => `https://embed.smashystream.com/playere.php?tmdb=${id}`,
-    getTvUrl: (id, s, e) => `https://embed.smashystream.com/playere.php?tmdb=${id}&season=${s}&episode=${e}`,
-    priority: 7,
-    needsScraping: false,
-  },
-  {
-    name: "moviesapi",
-    label: "MoviesAPI",
-    type: "movie",
-    getMovieUrl: (id) => `https://moviesapi.club/movie/${id}`,
-    getTvUrl: () => "",
-    priority: 8,
-    needsScraping: false,
-  },
-
-  // ═══ SCRAPER SOURCES (slower, used as fallback) ═══
   {
     name: "pelispedia",
     label: "PelisPedia (Latino)",
     type: "both",
     getMovieUrl: (id) => `${id}`,
     getTvUrl: (id, s, e) => `${id}/${s}/${e}`,
-    priority: 20,
+    priority: 0,
     needsScraping: true,
   },
   {
@@ -101,7 +26,16 @@ const embedSources: EmbedSource[] = [
     type: "both",
     getMovieUrl: (id) => `${id}`,
     getTvUrl: (id, s, e) => `${id}/${s}/${e}`,
-    priority: 21,
+    priority: 1,
+    needsScraping: true,
+  },
+  {
+    name: "cinecalidad",
+    label: "CineCalidad (Latino)",
+    type: "both",
+    getMovieUrl: (id) => `${id}`,
+    getTvUrl: (id, s, e) => `${id}/${s}/${e}`,
+    priority: 2,
     needsScraping: true,
   },
   {
@@ -110,16 +44,25 @@ const embedSources: EmbedSource[] = [
     type: "tv",
     getMovieUrl: () => "",
     getTvUrl: (id, s, e) => `${id}/${s}/${e}`,
-    priority: 22,
+    priority: 3,
     needsScraping: true,
   },
   {
-    name: "anime1v",
-    label: "Anime1V",
+    name: "animeflv",
+    label: "AnimeFLV (Latino/Sub)",
     type: "tv",
     getMovieUrl: () => "",
     getTvUrl: (id, s, e) => `${id}/${s}/${e}`,
-    priority: 23,
+    priority: 4,
+    needsScraping: true,
+  },
+  {
+    name: "doramasflix",
+    label: "DoramasFlix (Latino/Sub)",
+    type: "both",
+    getMovieUrl: (id) => `${id}`,
+    getTvUrl: (id, s, e) => `${id}/${s}/${e}`,
+    priority: 5,
     needsScraping: true,
   },
 ];
