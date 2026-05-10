@@ -1,12 +1,6 @@
 import { spawnSync } from "child_process";
 
-/**
- * ULTRA-ROBUST page reader.
- * Uses native fetch first, falls back to SILENT CURL.EXE.
- */
-export async function readPage(url: string, customHeaders?: Record<string, string>, useProxy: boolean = false): Promise<string> {
-  const targetUrl = useProxy ? `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` : url;
-  
+function buildHeaders(customHeaders?: Record<string, string>): Record<string, string> {
   const userAgents = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -14,78 +8,80 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
     "Mozilla/5.0 (Apple) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
   ];
-  const userAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
-  
-  console.log(`[readPage] Attempting: ${url}`);
- 
-  const headers: Record<string, string> = {
-    "User-Agent": userAgent,
+  return {
+    "User-Agent": userAgents[Math.floor(Math.random() * userAgents.length)],
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
     "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
     "Referer": "https://www.google.com/",
     "Cache-Control": "no-cache",
-    "Pragma": "no-cache",
-    "Sec-Ch-Ua": '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
-    "Sec-Ch-Ua-Mobile": "?0",
-    "Sec-Ch-Ua-Platform": '"Windows"',
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "cross-site",
-    "Sec-Fetch-User": "?1",
-    "Upgrade-Insecure-Requests": "1",
     ...customHeaders
   };
+}
 
-  // Try Native Fetch
+async function tryFetch(url: string, headers: Record<string, string>, timeout: number): Promise<string> {
   try {
-    const response = await fetch(targetUrl, {
+    const response = await fetch(url, {
       headers,
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(timeout)
     });
-    
     if (response.ok) {
       const text = await response.text();
-      if (text && text.length > 300) {
-        // console.log(`[readPage] Fetch Success: ${url} (${text.length} bytes)`);
-        return text;
-      }
+      if (text && text.length > 300) return text;
     }
-    console.warn(`[readPage] Fetch weak response (status: ${response.status})`);
-  } catch (e: any) {
-    console.warn(`[readPage] Fetch Error: ${e.message}`);
-  }
+  } catch {}
+  return "";
+}
 
-  // FALLBACK TO CURL.EXE (using spawnSync to handle headers safely)
+function tryCurl(url: string, headers: Record<string, string>): string {
   try {
-    console.log(`[readPage] Launching CURL fallback for: ${url}`);
-    const curlArgs = ["-s", "-L", "--connect-timeout", "4", "--max-time", "6"];
-    
+    const curlArgs = ["-s", "-L", "--connect-timeout", "4", "--max-time", "8"];
     Object.entries(headers).forEach(([k, v]) => {
       curlArgs.push("-H", `${k}: ${v}`);
     });
-    
-    curlArgs.push(targetUrl);
-    
-    const curlExecutable = process.platform === "win32" ? "curl.exe" : "curl";
-    const result = spawnSync(curlExecutable, curlArgs, { 
-      encoding: "utf8", 
+    curlArgs.push(url);
+    const curlExec = process.platform === "win32" ? "curl.exe" : "curl";
+    const result = spawnSync(curlExec, curlArgs, {
+      encoding: "utf8",
       maxBuffer: 1024 * 1024 * 10,
       windowsHide: true
     });
-    
-    const output = result.stdout;
-    
-    if (output && output.length > 200) {
-      console.log(`[readPage] CURL Success: ${url} (${output.length} bytes)`);
-      return output;
-    }
-    if (result.error) {
-      console.error(`[readPage] CURL Process Error: ${result.error.message}`);
-    }
-  } catch (e: any) {
-    console.error(`[readPage] CURL Final Error: ${e.message}`);
+    if (result.stdout && result.stdout.length > 200) return result.stdout;
+  } catch {}
+  return "";
+}
+
+const PROXY_URL = "https://api.allorigins.win/raw?url=";
+
+/**
+ * ULTRA-ROBUST page reader.
+ * 1. Try direct fetch (fast, no proxy overhead)
+ * 2. Try direct curl (bypasses some blocks)
+ * 3. Try proxy fetch (last resort, slower)
+ */
+export async function readPage(url: string, customHeaders?: Record<string, string>, useProxy: boolean = false): Promise<string> {
+  console.log(`[readPage] ${url}`);
+
+  const headers = buildHeaders(customHeaders);
+
+  // 1. Direct fetch — fastest path (7s timeout, Render-friendly)
+  let html = await tryFetch(url, headers, 7000);
+  if (html) { console.log(`[readPage] Direct OK (${html.length}b)`); return html; }
+
+  // 2. Direct curl — bypasses some blocks
+  html = tryCurl(url, headers);
+  if (html) { console.log(`[readPage] Curl OK (${html.length}b)`); return html; }
+
+  // 3. Proxy fallback — only if enabled and direct failed
+  if (useProxy) {
+    const proxyUrl = `${PROXY_URL}${encodeURIComponent(url)}`;
+    html = await tryFetch(proxyUrl, headers, 8000);
+    if (html) { console.log(`[readPage] Proxy OK (${html.length}b)`); return html; }
+
+    html = tryCurl(proxyUrl, headers);
+    if (html) { console.log(`[readPage] Proxy+Curl OK (${html.length}b)`); return html; }
   }
 
+  console.warn(`[readPage] FAILED: ${url}`);
   return "";
 }
 

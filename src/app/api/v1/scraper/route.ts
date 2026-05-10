@@ -262,6 +262,7 @@ export async function GET(req: NextRequest) {
             });
           }
         }
+        if (finalSources.length > 0 && !requestedSource) break;
       } catch (e) {
         console.warn(`[Scraper] ${provider.name} failed`, e);
       }
