@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StreamVault API — Embed Player</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #080b10; --surface: #0e1420; --surface2: #111827;
+    --border: #1c2535; --accent: #00e5ff; --accent2: #7b2ff7;
+    --text: #dce8f5; --muted: #5a6f8a; --green: #00ffb3; --red: #ff4f6a; --orange: #ff9c3b;
+  }
+  body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; }
+  .wrapper { max-width: 900px; margin: 0 auto; padding: 40px 20px 80px; }
+  .hero { text-align: center; margin-bottom: 60px; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; border: 1px solid rgba(0,229,255,.25); border-radius: 20px; padding: 6px 16px; font-size: 13px; color: var(--accent); margin-bottom: 24px; letter-spacing: 2px; text-transform: uppercase; }
+  .badge-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+  h1 { font-size: clamp(2rem,5vw,3.5rem); font-weight: 800; line-height: 1.1; margin-bottom: 16px; letter-spacing: -1px; }
+  h1 span { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { color: var(--muted); font-size: 17px; max-width: 500px; margin: 0 auto 32px; }
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn { padding: 12px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 14px; cursor: pointer; border: none; }
+  .btn-primary { background: linear-gradient(135deg,var(--accent),var(--accent2)); color: #fff; }
+  .btn-ghost { border: 1px solid var(--border); color: var(--text); background: none; }
+  .stats { display: flex; margin-top: 48px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .stat { flex: 1; padding: 20px 16px; text-align: center; border-right: 1px solid var(--border); background: var(--surface); }
+  .stat:last-child { border-right: none; }
+  .stat-val { font-size: 28px; font-weight: 800; }
+  .stat-lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .section-label { font-size: 12px; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  h2 { font-size: 28px; font-weight: 800; margin-bottom: 32px; }
+  .ep-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
+  .ep-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .method { background: rgba(0,255,179,.12); color: var(--green); border: 1px solid rgba(0,255,179,.25); padding: 4px 10px; border-radius: 5px; font-size: 12px; font-weight: 700; font-family: monospace; }
+  .ep-path { font-family: monospace; font-size: 15px; flex: 1; color: var(--text); word-break: break-all; }
+  .ep-path em { color: var(--accent); font-style: normal; }
+  .ep-badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .badge-movie { background: rgba(0,229,255,.1); color: var(--accent); border: 1px solid rgba(0,229,255,.2); }
+  .badge-series { background: rgba(123,47,247,.1); color: #a97bf7; border: 1px solid rgba(123,47,247,.2); }
+  .badge-tv { background: rgba(255,156,59,.1); color: var(--orange); border: 1px solid rgba(255,156,59,.2); }
+  .ep-body { padding: 0 20px 20px; }
+  .ep-desc { color: var(--muted); font-size: 14px; margin: 16px 0; }
+  .params-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin: 16px 0 8px; font-family: monospace; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; padding: 8px 12px; background: rgba(255,255,255,.03); color: var(--muted); font-size: 12px; font-weight: 400; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.04); }
+  .param-name { font-family: monospace; color: var(--accent); }
+  .param-type { font-family: monospace; color: var(--orange); font-size: 13px; }
+  .req { color: var(--red); }
+  .opt { color: var(--muted); }
+  .code-block { background: #060910; border: 1px solid var(--border); border-radius: 8px; margin-top: 16px; overflow: hidden; }
+  .code-top { display: flex; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.02); }
+  .code-lang { font-size: 12px; color: var(--muted); font-family: monospace; }
+  .copy-btn { background: none; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); font-size: 12px; cursor: pointer; padding: 3px 9px; font-family: monospace; }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+  pre { padding: 16px 18px; overflow: auto; font-size: 13px; font-family: monospace; color: #8da8c8; line-height: 1.6; margin: 0; }
+  .demo-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; }
+  .demo-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: flex-end; }
+  .demo-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .demo-row input, .demo-row select { background: #060910; border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 8px; font-size: 14px; font-family: monospace; }
+  #demo-url { background: #060910; border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; font-family: monospace; font-size: 14px; color: var(--accent); margin-bottom: 12px; word-break: break-all; }
+  footer { text-align: center; color: var(--muted); font-size: 14px; padding-top: 40px; border-top: 1px solid var(--border); margin-top: 60px; }
+  footer strong { color: var(--text); }
+  .schema-table { background: #060910; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 14px; }
+  .schema-row { display: grid; grid-template-columns: 180px 1fr 1fr; padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,.04); }
+  .schema-row:last-child { border-bottom: none; }
+  @media (max-width: 600px) {
+    .schema-row { grid-template-columns: 1fr 1fr; }
+    .schema-row span:last-child { display: none; }
+    .ep-path { font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+  <div class="hero">
+    <div class="badge"><span class="badge-dot"></span> Embed Player API v1.0</div>
+    <h1>Reproduce cualquier<br><span>contenido al instante</span></h1>
+    <p>Integrá el player de StreamVault en tu sitio con una sola línea. Películas, series, anime y canales TV — sin registro, sin API key.</p>
+    <div class="cta">
+      <a href="#endpoints" class="btn btn-primary">Ver Endpoints</a>
+      <a href="#demo" class="btn btn-ghost">Ver Demo</a>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-val" style="color:var(--accent)">Películas, Series, TV</div><div class="stat-lbl">Tipos de contenido</div></div>
+      <div class="stat"><div class="stat-val" style="color:var(--accent2)">iframe</div><div class="stat-lbl">Método de embed</div></div>
+      <div class="stat"><div class="stat-val" style="color:var(--green)">Latino</div><div class="stat-lbl">Idioma principal</div></div>
+    </div>
+  </div>
+
+  <div id="endpoints" style="margin-bottom:60px">
+    <div class="section-label">// Referencia</div>
+    <h2>Endpoints del Player</h2>
+
+    <div class="ep-card">
+      <div class="ep-header">
+        <span class="method">GET</span>
+        <span class="ep-path">/embed/movie/<em>{tmdb_id}</em></span>
+        <span class="ep-badge badge-movie">🎬 Película</span>
+      </div>
+      <div class="ep-body">
+        <p class="ep-desc">Carga el player embed para una película usando su ID de TMDB.</p>
+        <div class="params-title">Parámetros</div>
+        <table>
+          <tr><th>Nombre</th><th>Tipo</th><th>Req.</th><th>Descripción</th></tr>
+          <tr><td><span class="param-name">tmdb_id</span></td><td><span class="param-type">integer</span></td><td><span class="req">requerido</span></td><td>ID numérico de la película en TMDB</td></tr>
+        </table>
+        <div class="code-block">
+          <div class="code-top"><span class="code-lang">EJEMPLO</span><button class="copy-btn" onclick="copy(this,'&lt;iframe src=&quot;https://streamvault-vj0p.onrender.com/embed/movie/272&quot; width=&quot;100%&quot; height=&quot;500&quot; frameborder=&quot;0&quot; allowfullscreen&gt;&lt;/iframe&gt;')">Copiar</button></div>
+          <pre>&lt;iframe src="https://streamvault-vj0p.onrender.com/embed/movie/272"
+  width="100%" height="500" frameborder="0"
+  allowfullscreen allow="autoplay; encrypted-media"&gt;
+&lt;/iframe&gt;</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header">
+        <span class="method">GET</span>
+        <span class="ep-path">/embed/tv/<em>{tmdb_id}</em>?season=<em>{s}</em>&episode=<em>{e}</em></span>
+        <span class="ep-badge badge-series">📺 Series</span>
+      </div>
+      <div class="ep-body">
+        <p class="ep-desc">Carga el player embed para un episodio de serie.</p>
+        <div class="params-title">Parámetros</div>
+        <table>
+          <tr><th>Nombre</th><th>Tipo</th><th>Req.</th><th>Descripción</th></tr>
+          <tr><td><span class="param-name">tmdb_id</span></td><td><span class="param-type">integer</span></td><td><span class="req">requerido</span></td><td>ID de la serie en TMDB</td></tr>
+          <tr><td><span class="param-name">season</span></td><td><span class="param-type">integer</span></td><td><span class="req">requerido</span></td><td>Número de temporada</td></tr>
+          <tr><td><span class="param-name">episode</span></td><td><span class="param-type">integer</span></td><td><span class="req">requerido</span></td><td>Número de episodio</td></tr>
+        </table>
+        <div class="code-block">
+          <div class="code-top"><span class="code-lang">EJEMPLO</span><button class="copy-btn" onclick="copy(this,'&lt;iframe src=&quot;https://streamvault-vj0p.onrender.com/embed/tv/1399?season=1&amp;episode=1&quot; width=&quot;100%&quot; height=&quot;500&quot; frameborder=&quot;0&quot; allowfullscreen&gt;&lt;/iframe&gt;')">Copiar</button></div>
+          <pre>&lt;iframe src="https://streamvault-vj0p.onrender.com/embed/tv/1399?season=1&episode=1"
+  width="100%" height="500" frameborder="0"
+  allowfullscreen allow="autoplay; encrypted-media"&gt;
+&lt;/iframe&gt;</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header">
+        <span class="method">GET</span>
+        <span class="ep-path">/api/v1/tv/all?page=1&limit=200</span>
+        <span class="ep-badge badge-tv">📡 Canales TV</span>
+      </div>
+      <div class="ep-body">
+        <p class="ep-desc">Lista todos los canales de TV disponibles con nombre, logo, categoría y URL del stream.</p>
+        <div class="params-title">Parámetros</div>
+        <table>
+          <tr><th>Nombre</th><th>Tipo</th><th>Req.</th><th>Descripción</th></tr>
+          <tr><td><span class="param-name">page</span></td><td><span class="param-type">integer</span></td><td><span class="opt">opcional</span></td><td>Página (default 1)</td></tr>
+          <tr><td><span class="param-name">limit</span></td><td><span class="param-type">integer</span></td><td><span class="opt">opcional</span></td><td>Resultados por página (default 20)</td></tr>
+        </table>
+        <div class="code-block">
+          <div class="code-top"><span class="code-lang">EJEMPLO</span><button class="copy-btn" onclick="copy(this,'fetch(&quot;https://streamvault-vj0p.onrender.com/api/v1/tv/all?page=1&amp;limit=200&quot;).then(r=>r.json()).then(d=>console.log(d.results))')">Copiar</button></div>
+          <pre>fetch("https://streamvault-vj0p.onrender.com/api/v1/tv/all?page=1&limit=200")
+  .then(r => r.json())
+  .then(data => console.log(data.results));
+// [{name, logo, country, category, url}, ...]</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="ep-card">
+      <div class="ep-header">
+        <span class="method">GET</span>
+        <span class="ep-path">/api/v1/tv/all?search=<em>{query}</em></span>
+        <span class="ep-badge badge-tv">🔍 Buscar TV</span>
+      </div>
+      <div class="ep-body">
+        <p class="ep-desc">Busca canales en vivo consultando múltiples fuentes (TeleOnline + Animux).</p>
+        <div class="params-title">Parámetros</div>
+        <table>
+          <tr><th>Nombre</th><th>Tipo</th><th>Req.</th><th>Descripción</th></tr>
+          <tr><td><span class="param-name">query</span></td><td><span class="param-type">string</span></td><td><span class="req">requerido</span></td><td>Término de búsqueda</td></tr>
+        </table>
+        <div class="code-block">
+          <div class="code-top"><span class="code-lang">EJEMPLO</span><button class="copy-btn" onclick="copy(this,'fetch(&quot;https://streamvault-vj0p.onrender.com/api/v1/tv/all?search=caracol&quot;).then(r=>r.json()).then(d=>console.log(d.results))')">Copiar</button></div>
+          <pre>fetch("https://streamvault-vj0p.onrender.com/api/v1/tv/all?search=caracol")
+  .then(r => r.json())
+  .then(data => console.log(data.results));</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="demo" style="margin-bottom:60px">
+    <div class="section-label">// Live Demo</div>
+    <h2>Probá la API</h2>
+    <div class="demo-box">
+      <div class="demo-row">
+        <div><label>Tipo</label><select id="demo-type"><option value="movie">🎬 Película</option><option value="tv">📺 Serie</option></select></div>
+        <div><label>TMDB ID</label><input id="demo-id" type="number" value="272"></div>
+        <div id="demo-tv" style="display:none;gap:10px">
+          <div><label>Season</label><input id="demo-s" type="number" value="1" style="width:80px"></div>
+          <div><label>Episode</label><input id="demo-e" type="number" value="1" style="width:80px"></div>
+        </div>
+      </div>
+      <div id="demo-url">https://streamvault-vj0p.onrender.com/embed/movie/272</div>
+      <div style="display:flex;gap:10px">
+        <a id="demo-link" href="https://streamvault-vj0p.onrender.com/embed/movie/272" target="_blank" class="btn btn-primary">▶ Probar</a>
+        <button onclick="navigator.clipboard.writeText(document.getElementById('demo-url').textContent)" class="btn btn-ghost">📋 Copiar URL</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:60px">
+    <div class="section-label">// Estructura</div>
+    <h2>Formatos de Embed</h2>
+    <div class="schema-table">
+      <div class="schema-row"><span style="font-weight:600">🎬 Película</span><span style="color:var(--orange);font-family:monospace">/embed/movie/{id}</span><span style="color:var(--muted);font-family:monospace;font-size:13px">streamvault-vj0p.onrender.com/embed/movie/272</span></div>
+      <div class="schema-row"><span style="font-weight:600">📺 Serie</span><span style="color:var(--orange);font-family:monospace">/embed/tv/{id}?season={s}&episode={e}</span><span style="color:var(--muted);font-family:monospace;font-size:13px">streamvault-vj0p.onrender.com/embed/tv/1399?season=1&episode=1</span></div>
+      <div class="schema-row"><span style="font-weight:600">📡 Canales</span><span style="color:var(--orange);font-family:monospace">/api/v1/tv/all</span><span style="color:var(--muted);font-family:monospace;font-size:13px">streamvault-vj0p.onrender.com/api/v1/tv/all?page=1&limit=20</span></div>
+      <div class="schema-row"><span style="font-weight:600">🔍 Buscar TV</span><span style="color:var(--orange);font-family:monospace">/api/v1/tv/all?search=</span><span style="color:var(--muted);font-family:monospace;font-size:13px">streamvault-vj0p.onrender.com/api/v1/tv/all?search=espn</span></div>
+    </div>
+  </div>
+
+  <footer>
+    <strong>StreamVault</strong> · API v1.0 · Contenido en español latino · Sin API key requerida
+  </footer>
+</div>
+
+<script>
+function copy(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copiado';
+    setTimeout(() => btn.textContent = 'Copiar', 2000);
+  });
+}
+document.getElementById('demo-type').onchange = update;
+document.getElementById('demo-id').oninput = update;
+document.getElementById('demo-s').oninput = update;
+document.getElementById('demo-e').oninput = update;
+function update() {
+  var t = document.getElementById('demo-type').value;
+  var id = document.getElementById('demo-id').value || '272';
+  var s = document.getElementById('demo-s').value || '1';
+  var e = document.getElementById('demo-e').value || '1';
+  var base = 'https://streamvault-vj0p.onrender.com';
+  document.getElementById('demo-tv').style.display = t === 'tv' ? 'flex' : 'none';
+  var url = t === 'movie' ? base + '/embed/movie/' + id : base + '/embed/tv/' + id + '?season=' + s + '&episode=' + e;
+  document.getElementById('demo-url').textContent = url;
+  document.getElementById('demo-link').href = url;
+}
+</script>
+</body>
+</html>
