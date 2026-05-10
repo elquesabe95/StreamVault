@@ -487,18 +487,34 @@ function init() {
   placeholder.style.display = 'flex';
   document.getElementById('countText').textContent = 'Cargando canales...';
 
-  // Cargar Animux Firestore + TVLibre (todos) — sin StreamVault/TeleOnline
+  // Cargar StreamVault API (Animux Firestore via server) + TVLibre
   Promise.all([
-    loadAnimuxFirestore(),
+    fetch(API_BASE + '?page=1&limit=200').then(function(r){ return r.json(); }),
     loadTVLibreChannels()
   ]).then(function(results) {
-    var animuxCh = results[0] || [];
+    var svData = results[0] || {};
     var tvlibreCh = results[1] || [];
+
+    // Procesar canales de StreamVault (Premium + Animux del servidor)
+    var svCh = (svData.results || []).map(function(c) {
+      var url = c.url || '';
+      if (url.startsWith('/')) url = 'https://streamvault-vj0p.onrender.com' + url;
+      // Saltar canales con HTTP (bloqueados en HTTPS)
+      if (url.startsWith('http://')) return null;
+      return { name: c.name, logo: c.logo, category: c.category, country: c.country, url: url, provider: c.provider };
+    }).filter(Boolean);
 
     // Unir y deduplicar
     var seen = new Set();
     allChannels = [];
-    [animuxCh, tvlibreCh].forEach(function(list) {
+    [svCh, tvlibreCh].forEach(function(list) {
+      list.forEach(function(ch) {
+        var key = ch.name.toLowerCase().trim();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        allChannels.push(ch);
+      });
+    });
       list.forEach(function(ch) {
         var key = ch.name.toLowerCase().trim();
         if (!key || seen.has(key)) return;
