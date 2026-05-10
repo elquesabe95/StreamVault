@@ -61,13 +61,17 @@ export async function GET(req: NextRequest) {
         category: c.category || "General", country: c.country || "Intl", provider: "Premium",
       }));
 
-      // On page 1, fetch live channels from TeleOnline and Animux via proxy
+      // On page 1, fetch live channels from TeleOnline and Animux (with 8s timeout each)
       if (page === 1) {
+        const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T> => {
+          return Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
+        };
+
         const [animuxChannels, ...countryResults] = await Promise.allSettled([
-          getAnimuxChannels().catch(() => []),
-          getChannelsByCountry("colombia").catch(() => []),
-          getChannelsByCountry("mexico").catch(() => []),
-          getChannelsByCountry("argentina").catch(() => []),
+          withTimeout(getAnimuxChannels().catch(() => []), 8000),
+          withTimeout(getChannelsByCountry("colombia").catch(() => []), 8000),
+          withTimeout(getChannelsByCountry("mexico").catch(() => []), 8000),
+          withTimeout(getChannelsByCountry("argentina").catch(() => []), 8000),
         ]);
 
         if (animuxChannels.status === "fulfilled" && Array.isArray(animuxChannels.value)) {
