@@ -61,16 +61,43 @@ export async function GET(req: NextRequest) {
         category: c.category || "General", country: c.country || "Intl", provider: "Premium",
       }));
 
-      // On page 1, try to add more from live sources (fire-and-forget, don't block response)
+      // On page 1, fetch live channels from TeleOnline and Animux via proxy
       if (page === 1) {
-        // Don't await - let them populate in background for next request
-        Promise.allSettled([
+        const [animuxChannels, ...countryResults] = await Promise.allSettled([
           getAnimuxChannels().catch(() => []),
           getChannelsByCountry("colombia").catch(() => []),
           getChannelsByCountry("mexico").catch(() => []),
           getChannelsByCountry("argentina").catch(() => []),
-          getChannelsByCountry("espana").catch(() => []),
-        ]).catch(() => {});
+        ]);
+
+        if (animuxChannels.status === "fulfilled" && Array.isArray(animuxChannels.value)) {
+          for (const ch of animuxChannels.value.slice(0, 200)) {
+            results.push({
+              name: ch.name, url: `/api/v1/scraper?slug=${encodeURIComponent(ch.url)}&provider=animux`,
+              logo: ch.logo || "", category: ch.category || "Animux", provider: "Animux",
+            });
+          }
+        }
+
+        for (const r of countryResults) {
+          if (r.status === "fulfilled" && Array.isArray(r.value)) {
+            for (const ch of r.value.slice(0, 50)) {
+              results.push({
+                name: ch.name, url: `/api/v1/scraper?slug=${ch.slug}&provider=teleonline`,
+                logo: ch.logo || "", category: "TV", country: ch.country || "Intl", provider: "TeleOnline",
+              });
+            }
+          }
+        }
+
+        // Deduplicate
+        const seen = new Set<string>();
+        results = results.filter(ch => {
+          const key = `${ch.name.toLowerCase()}-${ch.provider}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
       }
     }
 
