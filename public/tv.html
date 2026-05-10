@@ -146,6 +146,18 @@ function isScraperURL(url) {
   return url && (url.includes('/api/v1/scraper') || url.includes('streamvault-vj0p.onrender.com'));
 }
 
+// Detectar si la URL es una pagina web (no se puede embeber)
+function isWebPageURL(url) {
+  return url && (url.includes('teleonline.org/canal/') || url.includes('teleonline.org/'));
+}
+
+// Convertir pagina de teleonline a URL del scraper
+function toScraperURL(url) {
+  var m = url.match(/\/canal\/([^/]+)/);
+  if (m) return 'https://streamvault-vj0p.onrender.com/api/v1/scraper?slug=' + m[1] + '&provider=teleonline';
+  return url;
+}
+
 // Extraer slug para canales del scraper
 function getSlug(ch) {
   if (ch.slug) return ch.slug;
@@ -194,29 +206,6 @@ function playDirectStream(url) {
   }
 }
 
-// Reproducir canal del scraper via embed
-function playScraperChannel(ch) {
-  stopPlayer();
-  playerLoading.classList.remove('hidden');
-  placeholder.style.display = 'none';
-
-  var slug = getSlug(ch);
-  var embedUrl = EMBED_BASE + slug;
-
-  playerFrame.style.display = 'block';
-  playerVideo.style.display = 'none';
-
-  playerFrame.onload = function() {
-    playerLoading.classList.add('hidden');
-  };
-  playerFrame.src = embedUrl;
-
-  // Fallback: si no carga en 15s, ocultar loading
-  setTimeout(function() {
-    playerLoading.classList.add('hidden');
-  }, 15000);
-}
-
 function stopPlayer() {
   if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
   playerVideo.pause();
@@ -231,10 +220,19 @@ function playChannel(ch) {
   var url = ch.url || '';
   var urls = ch.urls || [];
 
+  // Si la URL es una pagina web de teleonline, convertirla a scraper
+  if (isWebPageURL(url)) {
+    url = toScraperURL(url);
+  }
+
   // Si tiene URLs múltiples, usar la primera directa
   if (urls.length > 0) {
     var firstUrl = urls[0];
-    if (firstUrl.includes('.m3u8') || firstUrl.includes('.mp4')) {
+    if (firstUrl.includes('.m3u8') || firstUrl.includes('.mp4') || firstUrl.includes('youtube.com')) {
+      if (firstUrl.includes('youtube.com')) {
+        playYouTube(firstUrl);
+        return;
+      }
       playDirectStream(firstUrl);
       return;
     }
@@ -242,7 +240,13 @@ function playChannel(ch) {
 
   // Si la URL es del scraper de StreamVault
   if (isScraperURL(url)) {
-    playScraperChannel(ch);
+    playScraperChannel(ch, url);
+    return;
+  }
+
+  // Si es YouTube
+  if (url && url.includes('youtube.com')) {
+    playYouTube(url);
     return;
   }
 
@@ -252,19 +256,9 @@ function playChannel(ch) {
     return;
   }
 
-  // Si es YouTube
-  if (url && url.includes('youtube.com')) {
-    stopPlayer();
-    placeholder.style.display = 'none';
-    playerFrame.style.display = 'block';
-    playerVideo.style.display = 'none';
-    playerFrame.src = url;
-    return;
-  }
-
   // Último intento: usar embed con el slug
   if (url) {
-    playScraperChannel(ch);
+    playScraperChannel(ch, url);
     return;
   }
 
@@ -272,6 +266,61 @@ function playChannel(ch) {
   stopPlayer();
   placeholder.innerHTML = '<div class="placeholder-icon">⚠️</div><h2>Canal no disponible</h2><p>Este canal no tiene stream activo en este momento</p>';
   placeholder.style.display = 'flex';
+}
+
+function playYouTube(url) {
+  stopPlayer();
+  placeholder.style.display = 'none';
+  playerFrame.style.display = 'block';
+  playerVideo.style.display = 'none';
+  playerFrame.src = url;
+}
+
+// Modificar playScraperChannel para aceptar url directa
+function playScraperChannel(ch, scraperUrl) {
+  stopPlayer();
+  playerLoading.classList.remove('hidden');
+  placeholder.style.display = 'none';
+
+  // Si ya es una URL del scraper, resolverla primero
+  if (scraperUrl && scraperUrl.includes('/api/v1/scraper')) {
+    fetch(scraperUrl)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.success && data.sources && data.sources.length) {
+          var streamUrl = data.sources[0].url;
+          if (streamUrl.includes('.m3u8')) {
+            playDirectStream(streamUrl);
+          } else if (streamUrl.includes('youtube.com')) {
+            playYouTube(streamUrl);
+          } else {
+            playerFrame.style.display = 'block';
+            playerVideo.style.display = 'none';
+            playerFrame.src = streamUrl;
+            playerLoading.classList.add('hidden');
+          }
+        } else {
+          playerLoading.classList.add('hidden');
+          placeholder.innerHTML = '<div class="placeholder-icon">⚠️</div><h2>Canal caído</h2><p>El stream no está disponible en este momento</p>';
+          placeholder.style.display = 'flex';
+        }
+      })
+      .catch(function() {
+        playerLoading.classList.add('hidden');
+        placeholder.innerHTML = '<div class="placeholder-icon">⚠️</div><h2>Error</h2><p>No se pudo conectar al servidor</p>';
+        placeholder.style.display = 'flex';
+      });
+    return;
+  }
+
+  // Si no es scraper, usar embed
+  var slug = getSlug(ch);
+  var embedUrl = EMBED_BASE + slug;
+  playerFrame.style.display = 'block';
+  playerVideo.style.display = 'none';
+  playerFrame.onload = function() { playerLoading.classList.add('hidden'); };
+  playerFrame.src = embedUrl;
+  setTimeout(function() { playerLoading.classList.add('hidden'); }, 15000);
 }
 
 function showSkeletons() {
