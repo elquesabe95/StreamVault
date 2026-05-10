@@ -528,13 +528,6 @@ function init() {
         allChannels.push(ch);
       });
     });
-      list.forEach(function(ch) {
-        var key = ch.name.toLowerCase().trim();
-        if (!key || seen.has(key)) return;
-        seen.add(key);
-        allChannels.push(ch);
-      });
-    });
 
     document.getElementById('countText').textContent = allChannels.length + ' canales en vivo';
     buildTabs();
