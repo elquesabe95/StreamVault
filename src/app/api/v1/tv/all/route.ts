@@ -55,50 +55,22 @@ export async function GET(req: NextRequest) {
         return true;
       });
     } else {
-      // NO SEARCH: start with premium channels (instant)
+      // NO SEARCH: return premium channels instantly (no external API calls)
       results = staticChannels.map(c => ({
         name: c.name, url: c.url, logo: c.logo || "",
         category: c.category || "General", country: c.country || "Intl", provider: "Premium",
       }));
 
-      // On page 1, try to add more from live sources in parallel
+      // On page 1, try to add more from live sources (fire-and-forget, don't block response)
       if (page === 1) {
-        const [animuxChannels, ...countryResults] = await Promise.allSettled([
+        // Don't await - let them populate in background for next request
+        Promise.allSettled([
           getAnimuxChannels().catch(() => []),
           getChannelsByCountry("colombia").catch(() => []),
           getChannelsByCountry("mexico").catch(() => []),
           getChannelsByCountry("argentina").catch(() => []),
           getChannelsByCountry("espana").catch(() => []),
-        ]);
-
-        if (animuxChannels.status === "fulfilled" && Array.isArray(animuxChannels.value)) {
-          for (const ch of animuxChannels.value.slice(0, 100)) {
-            results.push({
-              name: ch.name, url: `/api/v1/scraper?slug=${encodeURIComponent(ch.url)}&provider=animux`,
-              logo: ch.logo || "", category: ch.category || "Animux", provider: "Animux",
-            });
-          }
-        }
-
-        for (const r of countryResults) {
-          if (r.status === "fulfilled" && Array.isArray(r.value)) {
-            for (const ch of r.value.slice(0, 30)) {
-              results.push({
-                name: ch.name, url: `/api/v1/scraper?slug=${ch.slug}&provider=teleonline`,
-                logo: ch.logo || "", category: "TV", country: ch.country || "Intl", provider: "TeleOnline",
-              });
-            }
-          }
-        }
-
-        // Deduplicate
-        const seen = new Set<string>();
-        results = results.filter(ch => {
-          const key = `${ch.name.toLowerCase()}-${ch.provider}`;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
+        ]).catch(() => {});
       }
     }
 
