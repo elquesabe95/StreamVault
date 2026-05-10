@@ -19,18 +19,7 @@ function getPlaybackType(url: string): PlaybackType {
 async function resolveDeep(url: string): Promise<string[]> {
   const first = await resolveStream(url).catch(() => url);
   const urls = Array.isArray(first) ? first : [first];
-  const result: string[] = [];
-
-  for (const u of urls) {
-    if (getPlaybackType(u) !== "iframe") {
-      result.push(u);
-    } else {
-      const second = await resolveStream(u).catch(() => u);
-      if (Array.isArray(second)) result.push(...second);
-      else result.push(second);
-    }
-  }
-  return result;
+  return urls.filter(u => u !== url || urls.length === 1).slice(0, 10);
 }
 
 export async function GET(req: NextRequest) {
