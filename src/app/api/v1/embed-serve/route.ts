@@ -18,21 +18,7 @@ function getPlaybackType(url: string): PlaybackType {
 
 async function resolveDeep(url: string): Promise<string[]> {
   const first = await resolveStream(url).catch(() => url);
-  const urls = Array.isArray(first) ? first : [first];
-  const result: string[] = [];
-
-  for (const u of urls.slice(0, 8)) {
-    if (getPlaybackType(u) !== "iframe") {
-      result.push(u);
-    } else if (u !== url) {
-      const second = await resolveStream(u).catch(() => u);
-      if (Array.isArray(second)) result.push(...second.slice(0, 2));
-      else result.push(second);
-    } else {
-      result.push(u);
-    }
-  }
-  return result;
+  return Array.isArray(first) ? first.slice(0, 12) : [first];
 }
 
 export async function GET(req: NextRequest) {
@@ -135,31 +121,32 @@ export async function GET(req: NextRequest) {
     const seen = new Set<string>();
     let count = 1;
 
-    for (const provider of providers) {
-      try {
-        const results = await provider.fn();
-        for (const item of results) {
-          const rawUrl = item.url || item.remote;
-          if (!rawUrl) continue;
+    // Run all providers in parallel for speed
+    const allResults = await Promise.allSettled(
+      providers.map(p => p.fn().catch(() => []))
+    );
 
-          const urls = await resolveDeep(rawUrl);
-          for (const u of urls) {
-            if (seen.has(u)) continue;
-            seen.add(u);
+    for (const r of allResults) {
+      if (r.status !== "fulfilled") continue;
+      for (const item of r.value) {
+        const rawUrl = item.url || item.remote;
+        if (!rawUrl) continue;
 
-            const lang = item.lang === "spanish" ? "Castellano" :
-              item.lang === "subbed" ? "Sub" : "Latino";
+        const urls = await resolveDeep(rawUrl);
+        for (const u of urls) {
+          if (seen.has(u)) continue;
+          seen.add(u);
 
-            finalSources.push({
-              url: u,
-              name: `Servidor ${count++}`,
-              lang,
-              playbackType: getPlaybackType(u),
-            });
-          }
+          const lang = item.lang === "spanish" ? "Castellano" :
+            item.lang === "subbed" ? "Sub" : "Latino";
+
+          finalSources.push({
+            url: u,
+            name: `Servidor ${count++}`,
+            lang,
+            playbackType: getPlaybackType(u),
+          });
         }
-      } catch (e) {
-        console.warn(`[EmbedServe] ${provider.name}: ${(e as Error).message}`);
       }
     }
 
