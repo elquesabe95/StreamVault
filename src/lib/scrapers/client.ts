@@ -38,9 +38,8 @@ function isCloudflareChallenge(html: string): boolean {
 }
 
 const PROXIES = [
-  "https://api.allorigins.win/raw?url=",
-  "https://api.codetabs.com/v1/proxy?quest=",
   "https://corsproxy.io/?",
+  "https://api.allorigins.win/raw?url=",
 ];
 
 export async function readPage(url: string, customHeaders?: Record<string, string>, useProxy: boolean = false): Promise<string> {
@@ -66,7 +65,7 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   if (useProxy) {
     for (const proxy of PROXIES) {
       const proxyUrl = proxy + encodeURIComponent(url);
-      html = await tryFetch(proxyUrl, headers, 10000);
+      html = await tryFetch(proxyUrl, headers, 12000);
       if (html && !isCloudflareChallenge(html) && html.length > 500) {
         console.log(`[readPage] Proxy OK: ${proxy.substring(0, 30)} (${html.length}b)`);
         return html;

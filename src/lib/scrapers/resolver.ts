@@ -90,7 +90,9 @@ export async function resolveStream(url: string): Promise<string | string[]> {
   console.log(`[Resolver] ${url.substring(0, 80)}`);
 
   try {
-    const html = await readPage(url, {}, false);
+    // Use proxy for master embed sites that may block Render IPs
+    const needsProxy = /(?:embed69|apialfa|superembed)/.test(url);
+    const html = await readPage(url, {}, needsProxy);
     if (!html || html.length < 200) {
       console.warn(`[Resolver] Empty/short response`);
       return url;
