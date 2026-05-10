@@ -149,7 +149,10 @@ export async function resolveStream(url: string): Promise<string | string[]> {
   try {
     // Send correct Referer for embed sites that check it
     const extraHeaders: Record<string, string> = {};
-    if (url.includes("embed69.org")) extraHeaders["Referer"] = "https://pelispedia.mov/";
+    if (url.includes("embed69.org")) {
+      extraHeaders["Referer"] = "https://pelispedia.mov/";
+      extraHeaders["Origin"] = "https://pelispedia.mov";
+    }
     const html = await readPage(url, extraHeaders);
 
     if (!html || html.length < 200) {

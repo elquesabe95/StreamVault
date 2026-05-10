@@ -22,7 +22,10 @@ async function tryFetch(url: string, headers: Record<string, string>, timeout: n
 
 function tryCurl(url: string, userAgent: string): string {
   try {
-    const args = ["-s", "-L", "--max-time", "10", "-A", userAgent, url];
+    const args = ["-s", "-L", "--max-time", "8", "-A", userAgent,
+      "-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "-H", "Accept-Language: es-ES,es;q=0.9,en;q=0.8",
+      url];
     const result = spawnSync("curl", args, { encoding: "utf8", maxBuffer: 5 * 1024 * 1024 });
     if (result.stdout?.length > 300) return result.stdout;
   } catch {}
