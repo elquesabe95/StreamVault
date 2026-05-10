@@ -460,8 +460,6 @@ async function loadTVLibreChannels() {
     return result;
   } catch(e) { return []; }
 }
-var svSearchResults = [];
-async function searchChannelsLive(query) {
 // Canales YouTube 24/7 curados
 function loadCuratedChannels() {
   return Promise.resolve([
@@ -485,6 +483,9 @@ function loadCuratedChannels() {
     { name:'Discovery Kids LA', logo:'', category:'Infantil', country:'Intl', url:'https://www.youtube.com/embed/live_stream?channel=UC9PIfDp0yx6QRTMVMltMZyA&autoplay=1', provider:'YouTube' },
   ]);
 }
+
+var svSearchResults = [];
+async function searchChannelsLive(query) {
   if (!query) { svSearchResults = []; renderList(); return; }
   try {
     var res = await fetch(API_BASE + '?search=' + encodeURIComponent(query) + '&page=1&limit=30');
