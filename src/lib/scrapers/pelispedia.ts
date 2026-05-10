@@ -11,7 +11,7 @@ export interface PelisSource {
 export async function searchPelispedia(query: string) {
   // Use the correct search pattern: /search?s=query
   const searchUrl = `${BASE_URL}/search?s=${encodeURIComponent(query)}`;
-  const html = await readPage(searchUrl, {}, true);
+  const html = await readPage(searchUrl, {}, false);
   
   const results: { title: string; url: string; poster?: string }[] = [];
   
@@ -38,7 +38,7 @@ export async function searchPelispedia(query: string) {
  * Extract video sources from a PelisPedia page
  */
 export async function getPelispediaSources(pageUrl: string): Promise<PelisSource[]> {
-  const html = await readPage(pageUrl, {}, true);
+  const html = await readPage(pageUrl, {}, false);
   const sources: PelisSource[] = [];
   
   // 1. Extract server names from buttons (try multiple patterns)

@@ -96,9 +96,10 @@ export async function resolveStream(url: string): Promise<string | string[]> {
   console.log(`[Resolver] ${url.substring(0, 80)}`);
 
   try {
-    // Use proxy for master embed sites that may block Render IPs
-    const needsProxy = /(?:embed69|apialfa|superembed)/.test(url);
-    const html = await readPage(url, {}, needsProxy);
+    // Some embed sites need the correct referer
+    const extraHeaders: Record<string, string> = {};
+    if (url.includes("embed69.org")) extraHeaders["Referer"] = "https://pelispedia.mov/";
+    const html = await readPage(url, extraHeaders, false);
     if (!html || html.length < 200) {
       console.warn(`[Resolver] Empty/short response`);
       return url;
