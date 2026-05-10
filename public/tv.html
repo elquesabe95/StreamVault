@@ -477,11 +477,13 @@ function init() {
       // Filtrar solo canales del scraper (Premium) - son los que funcionan
       allChannels = ch.filter(function(c) {
         var url = c.url || '';
+        // Convertir URLs relativas a absolutas
+        if (url.startsWith('/')) c.url = 'https://streamvault-vj0p.onrender.com' + url;
+        url = c.url;
         // Solo incluir canales del scraper (Premium/TeleOnline/Animux)
-        if (url.startsWith('/api/v1/scraper') || url.includes('streamvault-vj0p.onrender.com/api/v1/scraper')) return true;
+        if (url.includes('/api/v1/scraper')) return true;
         // Incluir YouTube embeds
         if (url.includes('youtube.com/embed')) return true;
-        // Excluir todo lo demás (m3u8 directos, HTTP, etc.)
         return false;
       });
       document.getElementById('countText').textContent = allChannels.length + ' canales en vivo';
