@@ -4,9 +4,8 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import { getAnimuxChannels } from "@/lib/scrapers/animux";
-import { getChannelsByCountry, searchChannels as searchTele } from "@/lib/teleonline";
+import { searchChannels as searchTele, getChannelsByCountry } from "@/lib/teleonline";
 import { channels as staticChannels } from "@/lib/scrapers/channels";
-import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
@@ -16,93 +15,36 @@ export async function GET(req: NextRequest) {
 
   try {
     let results: any[] = [];
-    let totalCount = 0;
 
-    // 1. Try database first (fast if populated)
-    const whereClause: any = {};
-    if (search) whereClause.name = { contains: search };
-
-    try {
-      const [dbChannels, dbCount] = await Promise.all([
-        prisma.channel.findMany({ where: whereClause, orderBy: { name: "asc" }, skip: (page - 1) * limit, take: limit }),
-        prisma.channel.count({ where: whereClause })
+    if (search) {
+      // SEARCH: query live APIs
+      const [teleResults, animuxAll] = await Promise.allSettled([
+        searchTele(search),
+        getAnimuxChannels().catch(() => []),
       ]);
-      results = dbChannels.map(ch => ({
-        name: ch.name, url: ch.url, logo: ch.logo || "",
-        category: ch.category || "General", country: ch.country || "Intl", provider: ch.provider,
-      }));
-      totalCount = dbCount;
-    } catch (e) {
-      // DB not available — fall through to live sources
-    }
 
-    // 2. If DB is empty, use live scrapers + static fallback
-    if (results.length === 0 && page === 1) {
       const liveResults: any[] = [];
 
-      // Fetch from live sources in parallel
-      if (!search) {
-        // Without search, get channels by popular countries
-        const countries = ["colombia", "mexico", "espana", "argentina", "estados-unidos"];
-        const countryResults = await Promise.allSettled(
-          countries.map(c => getChannelsByCountry(c).catch(() => []))
-        );
-        for (const r of countryResults) {
-          if (r.status === "fulfilled" && Array.isArray(r.value)) {
-            for (const ch of r.value) {
-              liveResults.push({
-                name: ch.name, url: `/api/v1/scraper?slug=${ch.slug}&provider=teleonline`,
-                logo: ch.logo || "", category: "TV", country: ch.country || "Intl", provider: "TeleOnline",
-              });
-            }
-          }
-        }
-      } else {
-        // With search
-        const teleResults = await searchTele(search).catch(() => []);
-        for (const ch of teleResults) {
+      if (teleResults.status === "fulfilled" && Array.isArray(teleResults.value)) {
+        for (const ch of teleResults.value.slice(0, 30)) {
           liveResults.push({
             name: ch.name, url: `/api/v1/scraper?slug=${ch.slug}&provider=teleonline`,
-            logo: ch.logo || "", category: "TeleOnline", provider: "TeleOnline",
+            logo: ch.logo || "", category: "TV", country: ch.country || "Intl", provider: "TeleOnline",
           });
         }
       }
 
-      // Add Animux channels
-      try {
-        const animuxChannels = await getAnimuxChannels();
-        const filtered = search
-          ? animuxChannels.filter((ch: any) => ch.name.toLowerCase().includes(search.toLowerCase()))
-          : animuxChannels;
+      if (animuxAll.status === "fulfilled" && Array.isArray(animuxAll.value)) {
+        const filtered = animuxAll.value
+          .filter((ch: any) => ch.name.toLowerCase().includes(search.toLowerCase()))
+          .slice(0, 30);
         for (const ch of filtered) {
           liveResults.push({
             name: ch.name, url: `/api/v1/scraper?slug=${encodeURIComponent(ch.url)}&provider=animux`,
             logo: ch.logo || "", category: ch.category || "Animux", provider: "Animux",
           });
         }
-      } catch {}
-
-      // Add static premium channels
-      for (const ch of staticChannels) {
-        liveResults.push({
-          name: ch.name, url: ch.url, logo: ch.logo || "",
-          category: ch.category || "Premium", country: ch.country || "Intl", provider: "Premium",
-        });
       }
-
-      // Try IPTV-org direct
-      try {
-        const res = await fetch("https://iptv-org.github.io/api/streams/co.json");
-        const streams = await res.json();
-        if (Array.isArray(streams)) {
-          for (const s of streams.slice(0, 100)) {
-            liveResults.push({
-              name: s.channel || "Canal IPTV", url: s.url, logo: "",
-              category: "IPTV", provider: "IPTV-org",
-            });
-          }
-        }
-      } catch {}
 
       // Deduplicate
       const seen = new Set<string>();
@@ -112,26 +54,64 @@ export async function GET(req: NextRequest) {
         seen.add(key);
         return true;
       });
+    } else {
+      // NO SEARCH: start with premium channels (instant)
+      results = staticChannels.map(c => ({
+        name: c.name, url: c.url, logo: c.logo || "",
+        category: c.category || "General", country: c.country || "Intl", provider: "Premium",
+      }));
 
-      totalCount = results.length;
+      // On page 1, try to add more from live sources in parallel
+      if (page === 1) {
+        const [animuxChannels, ...countryResults] = await Promise.allSettled([
+          getAnimuxChannels().catch(() => []),
+          getChannelsByCountry("colombia").catch(() => []),
+          getChannelsByCountry("mexico").catch(() => []),
+          getChannelsByCountry("argentina").catch(() => []),
+          getChannelsByCountry("espana").catch(() => []),
+        ]);
 
-      // Paginate
-      const start = (page - 1) * limit;
-      results = results.slice(start, start + limit);
+        if (animuxChannels.status === "fulfilled" && Array.isArray(animuxChannels.value)) {
+          for (const ch of animuxChannels.value.slice(0, 100)) {
+            results.push({
+              name: ch.name, url: `/api/v1/scraper?slug=${encodeURIComponent(ch.url)}&provider=animux`,
+              logo: ch.logo || "", category: ch.category || "Animux", provider: "Animux",
+            });
+          }
+        }
 
-      // Trigger background DB sync
-      try {
-        const { syncChannelsGlobal } = await import("@/lib/scrapers/iptv-org");
-        syncChannelsGlobal().catch(() => {});
-      } catch {}
+        for (const r of countryResults) {
+          if (r.status === "fulfilled" && Array.isArray(r.value)) {
+            for (const ch of r.value.slice(0, 30)) {
+              results.push({
+                name: ch.name, url: `/api/v1/scraper?slug=${ch.slug}&provider=teleonline`,
+                logo: ch.logo || "", category: "TV", country: ch.country || "Intl", provider: "TeleOnline",
+              });
+            }
+          }
+        }
+
+        // Deduplicate
+        const seen = new Set<string>();
+        results = results.filter(ch => {
+          const key = `${ch.name.toLowerCase()}-${ch.provider}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
     }
+
+    const total = results.length;
+    const start = (page - 1) * limit;
+    results = results.slice(start, start + limit);
 
     return NextResponse.json({
       success: true,
       count: results.length,
-      total: totalCount,
+      total,
       page,
-      totalPages: Math.ceil(totalCount / limit),
+      totalPages: Math.ceil(total / limit),
       results,
     });
 
