@@ -487,29 +487,18 @@ function init() {
   placeholder.style.display = 'flex';
   document.getElementById('countText').textContent = 'Cargando canales...';
 
-  // Cargar Animux Firestore + StreamVault Premium + TVLibre Sports
+  // Cargar Animux Firestore + TVLibre (todos) — sin StreamVault/TeleOnline
   Promise.all([
     loadAnimuxFirestore(),
-    loadTVLibreChannels(),
-    fetch(API_BASE + '?page=1&limit=200').then(function(r){ return r.json(); })
+    loadTVLibreChannels()
   ]).then(function(results) {
     var animuxCh = results[0] || [];
     var tvlibreCh = results[1] || [];
-    var svData = results[2] || {};
-
-    // Procesar canales del scraper de StreamVault
-    var svCh = (svData.results || []).filter(function(c) {
-      return c.provider === 'Premium' || c.provider === 'Animux';
-    }).map(function(c) {
-      var url = c.url || '';
-      if (url.startsWith('/')) url = 'https://streamvault-vj0p.onrender.com' + url;
-      return { name: c.name, logo: c.logo, category: c.category, country: c.country, url: url, provider: c.provider };
-    });
 
     // Unir y deduplicar
     var seen = new Set();
     allChannels = [];
-    [animuxCh, tvlibreCh, svCh].forEach(function(list) {
+    [animuxCh, tvlibreCh].forEach(function(list) {
       list.forEach(function(ch) {
         var key = ch.name.toLowerCase().trim();
         if (!key || seen.has(key)) return;
