@@ -7,18 +7,18 @@ export default function Home() {
     <>
       <style>{`
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-        :root{--bg:#080b10;--surface:#0e1420;--surface2:#111827;--border:#1c2535;--accent:#00e5ff;--accent2:#7b2ff7;--text:#dce8f5;--muted:#5a6f8a;--green:#00ffb3;--red:#ff4f6a;--orange:#ff9c3b;--radius:10px}
+        :root{--bg:#0a0a0a;--surface:#141414;--surface2:#1a1a1a;--border:#2a2a2a;--accent:#e50914;--accent2:#b81d24;--text:#f5f5f5;--muted:#737373;--green:#46d369;--red:#e50914;--orange:#f5a623;--radius:8px}
         html{scroll-behavior:smooth}
-        body{background:var(--bg);color:var(--text);font-family:'Syne',system-ui,-apple-system,sans-serif;min-height:100vh;overflow-x:hidden}
-        body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(0,229,255,.04),transparent 50%),radial-gradient(ellipse at 80% 100%,rgba(123,47,247,.04),transparent 50%);pointer-events:none;z-index:0}
+        body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,sans-serif;min-height:100vh;overflow-x:hidden}
+        body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 30% 0%,rgba(229,9,20,.04),transparent 60%),radial-gradient(ellipse at 70% 100%,rgba(229,9,20,.02),transparent 50%);pointer-events:none;z-index:0}
         .bg-glow{position:fixed;border-radius:50%;filter:blur(120px);pointer-events:none;z-index:0}
-        .glow-1{width:600px;height:600px;background:rgba(0,229,255,.07);top:-200px;left:-200px}
-        .glow-2{width:500px;height:500px;background:rgba(123,47,247,.08);bottom:-150px;right:-150px}
+        .glow-1{width:600px;height:600px;background:rgba(229,9,20,.05);top:-200px;left:-200px}
+        .glow-2{width:500px;height:500px;background:rgba(229,9,20,.03);bottom:-150px;right:-150px}
         .wrapper{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 28px}
         header{border-bottom:1px solid var(--border);padding:22px 0;position:sticky;top:0;background:rgba(8,11,16,.88);backdrop-filter:blur(20px);z-index:100}
         .header-inner{max-width:1100px;margin:0 auto;padding:0 28px;display:flex;align-items:center;justify-content:space-between}
         .logo{display:flex;align-items:center;gap:12px;font-size:1.3rem;font-weight:800;letter-spacing:-0.5px;text-decoration:none;color:var(--text);font-family:'Syne',sans-serif}
-        .logo-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:grid;place-items:center;font-size:.75rem;font-weight:700;color:#fff}
+        .logo-mark{width:36px;height:36px;background:var(--accent);border-radius:4px;display:grid;place-items:center;font-size:.75rem;font-weight:700;color:#fff}
         .badge{display:inline-flex;align-items:center;gap:6px;font-family:monospace;font-size:.7rem;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--muted)}
         .badge-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
@@ -27,14 +27,14 @@ export default function Home() {
         nav a:hover{color:var(--accent)}
         .hero{padding:90px 0 70px;text-align:center;animation:fadeUp .7s both}
         @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
-        .hero-tag{display:inline-flex;align-items:center;gap:8px;font-family:monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(0,229,255,.25);border-radius:20px;padding:5px 14px;margin-bottom:28px}
+        .hero-tag{display:inline-flex;align-items:center;gap:8px;font-family:monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(229,9,20,.3);border-radius:4px;padding:5px 14px;margin-bottom:28px}
         .hero h1{font-size:clamp(2.4rem,6vw,4.2rem);font-weight:800;line-height:1.05;letter-spacing:-2px;margin-bottom:22px}
-        .hero h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .hero h1 span{color:var(--accent)}
         .hero p{font-size:1.05rem;color:var(--muted);max-width:560px;margin:0 auto 40px;line-height:1.7}
         .cta-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
         .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:8px;font-family:'Syne',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;text-decoration:none;transition:all .2s;border:none}
-        .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 0 24px rgba(0,229,255,.25)}
-        .btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(0,229,255,.4)}
+        .btn-primary{background:var(--accent);color:#fff;box-shadow:0 0 24px rgba(229,9,20,.3)}
+        .btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(229,9,20,.5)}
         .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
         .btn-ghost:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-2px)}
         .stats-row{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:60px 0 0;animation:fadeUp .9s .1s both}
@@ -47,16 +47,16 @@ export default function Home() {
         .endpoints{display:flex;flex-direction:column;gap:18px}
         .ep-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s,box-shadow .2s;animation:fadeUp .7s both}
         .ep-card:nth-child(2){animation-delay:.1s}.ep-card:nth-child(3){animation-delay:.2s}.ep-card:nth-child(4){animation-delay:.3s}
-        .ep-card:hover{border-color:rgba(0,229,255,.3);box-shadow:0 0 32px rgba(0,229,255,.06)}
+        .ep-card:hover{border-color:rgba(229,9,20,.3);box-shadow:0 0 32px rgba(229,9,20,.06)}
         .ep-header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:18px 22px}
         .method{font-family:monospace;font-size:.7rem;font-weight:700;padding:4px 10px;border-radius:5px;letter-spacing:.08em}
         .get{background:rgba(0,255,179,.12);color:var(--green);border:1px solid rgba(0,255,179,.25)}
         .ep-path{font-family:monospace;font-size:.88rem;flex:1;color:var(--text);word-break:break-all}
         .ep-path em{color:var(--accent);font-style:normal}
         .ep-type-badge{font-family:monospace;font-size:.65rem;padding:3px 9px;border-radius:20px;font-weight:700;letter-spacing:.05em}
-        .movie{background:rgba(0,229,255,.1);color:var(--accent);border:1px solid rgba(0,229,255,.2)}
-        .series{background:rgba(123,47,247,.1);color:#a97bf7;border:1px solid rgba(123,47,247,.2)}
-        .tv{background:rgba(255,156,59,.1);color:var(--orange);border:1px solid rgba(255,156,59,.2)}
+        .movie{background:rgba(229,9,20,.1);color:var(--accent);border:1px solid rgba(229,9,20,.2)}
+        .series{background:rgba(229,9,20,.1);color:#e87d7d;border:1px solid rgba(229,9,20,.2)}
+        .tv{background:rgba(245,166,35,.1);color:var(--orange);border:1px solid rgba(245,166,35,.2)}
         .ep-desc{padding:0 22px 22px;color:var(--muted);font-size:.88rem;line-height:1.6}
         .ep-body{padding:0 22px 22px;border-top:1px solid var(--border)}
         .params-title{font-size:.75rem;font-family:monospace;color:var(--muted);margin:18px 0 10px;letter-spacing:.08em;text-transform:uppercase}
@@ -149,8 +149,8 @@ export default function Home() {
             </a>
           </div>
           <div className="stats-row">
-            <div className="stat"><div className="stat-val" style={{color:"var(--accent)"}}>3</div><div className="stat-lbl" style={{fontFamily:"monospace"}}>Tipos de contenido</div></div>
-            <div className="stat"><div className="stat-val" style={{color:"var(--accent2)"}}>iframe</div><div className="stat-lbl" style={{fontFamily:"monospace"}}>Método de embed</div></div>
+            <div className="stat"><div className="stat-val" style={{color:"var(--accent)"}}>Películas, Series, TV</div><div className="stat-lbl" style={{fontFamily:"monospace"}}>Tipos de contenido</div></div>
+            <div className="stat"><div className="stat-val" style={{color:"#e50914"}}>iframe</div><div className="stat-lbl" style={{fontFamily:"monospace"}}>Método de embed</div></div>
             <div className="stat"><div className="stat-val" style={{color:"var(--green)"}}>100%</div><div className="stat-lbl" style={{fontFamily:"monospace"}}>Sin autenticación</div></div>
           </div>
         </div>
@@ -217,6 +217,25 @@ export default function Home() {
   .then(r => r.json())
   .then(data => console.log(data.results));
 // [{name, logo, country, category, url}, ...]`}
+            />
+
+            {/* LIVE TV EMBED */}
+            <EndpointCard
+              method="GET"
+              path="/embed/live/{slug}"
+              badge="📺 Live TV"
+              badgeClass="series"
+              desc="Player embed directo para canales de TV en vivo. Resuelve automáticamente el stream desde múltiples fuentes."
+              params={[{name:"slug",type:"string",req:true,desc:"Slug del canal (ej: caracol-tv, espn-premium, rcn-tv)"}]}
+              code={`<!-- Canal de TV en vivo -->
+&lt;iframe
+  src="${BASE}/embed/live/caracol-tv"
+  width="100%"
+  height="500"
+  frameborder="0"
+  allowfullscreen
+  allow="autoplay; encrypted-media; fullscreen"
+&gt;&lt;/iframe&gt;`}
             />
 
             {/* SEARCH TV */}
@@ -320,6 +339,7 @@ export default function Home() {
             <div className="schema-row"><div className="field-name">🎬 Película</div><div className="field-type">/movie/{"{id}"}</div><div className="field-desc">streamvault-vj0p.onrender.com/embed/movie/272</div></div>
             <div className="schema-row"><div className="field-name">📺 Serie</div><div className="field-type">/tv/{"{id}"}?season=&episode=</div><div className="field-desc">streamvault-vj0p.onrender.com/embed/tv/1399?season=1&episode=1</div></div>
             <div className="schema-row"><div className="field-name">📡 Canales TV</div><div className="field-type">/api/v1/tv/all</div><div className="field-desc">streamvault-vj0p.onrender.com/api/v1/tv/all?page=1&limit=20</div></div>
+            <div className="schema-row"><div className="field-name">📺 Live TV</div><div className="field-type">/embed/live/{"{slug}"}</div><div className="field-desc">streamvault-vj0p.onrender.com/embed/live/caracol-tv</div></div>
             <div className="schema-row"><div className="field-name">🔍 Buscar TV</div><div className="field-type">/api/v1/tv/all?search=</div><div className="field-desc">streamvault-vj0p.onrender.com/api/v1/tv/all?search=espn</div></div>
           </div>
         </section>
