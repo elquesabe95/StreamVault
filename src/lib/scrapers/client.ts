@@ -41,13 +41,10 @@ function isCloudflareChallenge(html: string): boolean {
     (html.includes("Just a moment") && html.length < 2000);
 }
 
-// Primary proxy: your Cloudflare Worker (deploy worker-proxy.js with `npx wrangler deploy`)
-// Free: 100k req/day. If not set, falls back to direct access.
-const WORKER_PROXY = process.env.PROXY_WORKER_URL || "";
-
-const PROXIES = [
-  WORKER_PROXY,  // Your Cloudflare Worker — fastest, most reliable
-].filter(Boolean);
+function getProxies(): string[] {
+  const worker = process.env.PROXY_WORKER_URL || "https://streamvault-proxy.elquesabe95.workers.dev";
+  return [worker];
+}
 
 export async function readPage(url: string, customHeaders?: Record<string, string>, useProxy: boolean = false): Promise<string> {
   const headers = buildHeaders(customHeaders);
@@ -70,7 +67,7 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
 
   // 3. Proxy fallback — try multiple proxies
   if (useProxy) {
-    for (const proxy of PROXIES) {
+    for (const proxy of getProxies()) {
       // Support both ?url= format (Cloudflare Worker) and direct append
       const sep = proxy.includes("workers.dev") ? "?url=" : "";
       const proxyUrl = proxy + sep + encodeURIComponent(url);
