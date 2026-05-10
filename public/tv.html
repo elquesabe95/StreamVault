@@ -291,14 +291,29 @@ function merge(arrays){ var seen={},out=[];
   var order={sv:0,yt:1,ftv:2,iptv:3};
   out.sort(function(a,b){ var od=(order[a.source]||0)-(order[b.source]||0); return od!==0?od:a.name.localeCompare(b.name); }); return out; }
 
+function loadIPTV(){ return Promise.all([
+    fetchJSON('https://iptv-org.github.io/api/channels.json',20000),
+    fetchJSON('https://iptv-org.github.io/api/streams.json',20000)
+  ]).then(function(res){
+    var chMap={}; res[0].forEach(function(c){ chMap[c.id]=c; }); var out=[]; var seen={};
+    res[1].forEach(function(s){ if(!s.channel||!s.url) return; var ch=chMap[s.channel]; if(!ch) return;
+      if(ch.country!=='CO') return; if(seen[s.channel]) return; seen[s.channel]=true;
+      var cats=(ch.categories||[]); var cat=cats.length?cats[0]:'General';
+      var map={general:'General',news:'Noticias',sports:'Deportes',entertainment:'Entretenimiento',movies:'Películas',kids:'Infantil',music:'Música'};
+      cat=map[(cat||'').toLowerCase()]||cat;
+      out.push({name:ch.name,logo:ch.logo||'',url:s.url,category:cat,country:'CO',source:'iptv'}); });
+    return out;
+  });}
+
 function init(){ showSkeletons(); showState('idle');
-  var res={sv:[],ftv:[],yt:[]}; var done=0,total=3;
-  function onDone(){ done++; var merged=merge([res.sv,res.yt,res.ftv]);
+  var res={sv:[],ftv:[],yt:[],iptv:[]}; var done=0,total=4;
+  function onDone(){ done++; var merged=merge([res.sv,res.yt,res.ftv,res.iptv]);
     if(merged.length){ allChannels=merged; buildTabs(); buildTicker(); renderBar(); }
     if(done===total&&!allChannels.length){ elBar.innerHTML='<div class="bar-msg">No se pudieron cargar canales <button onclick="init()" style="margin-left:8px;background:var(--red);color:#fff;border:none;font-family:inherit;font-size:11px;padding:5px 12px;border-radius:5px;cursor:pointer">Reintentar</button></div>'; }}
   loadSV().then(function(c){res.sv=c;}).catch(function(e){console.warn('SV:',e);}).then(onDone);
   loadYT().then(function(c){res.yt=c;}).then(onDone);
-  loadFTV().then(function(c){res.ftv=c;}).catch(function(e){console.warn('FTV:',e);}).then(onDone);}
+  loadFTV().then(function(c){res.ftv=c;}).catch(function(e){console.warn('FTV:',e);}).then(onDone);
+  loadIPTV().then(function(c){res.iptv=c;}).catch(function(e){console.warn('IPTV:',e);}).then(onDone);}
 
 init();
 </script>
