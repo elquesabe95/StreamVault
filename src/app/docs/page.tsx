@@ -1,9 +1,6 @@
-import { Metadata } from "next";
+"use client";
 
-export const metadata: Metadata = {
-  title: "StreamVault API — Embed Player",
-  description: "API gratuita para embeber películas, series y canales de TV en español latino. Sin registro, sin API key.",
-};
+import React from "react";
 
 export default function DocsPage() {
   const BASE = process.env.NEXT_PUBLIC_URL || "https://streamvault-vj0p.onrender.com";
