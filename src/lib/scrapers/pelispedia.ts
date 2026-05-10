@@ -93,7 +93,7 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
  */
 export async function getPelispediaEpisodeUrl(seriesUrl: string, season: number, episode: number): Promise<string | null> {
   try {
-    const html = await readPage(seriesUrl, {}, true);
+    const html = await readPage(seriesUrl, {}, false);
     
     // Primary pattern: /serie/slug/temporada/S/capitulo/E (confirmed from live site)
     const primaryPattern = new RegExp(`/serie/[^"]+/temporada/${season}/capitulo/${episode}[^"]*`, 'i');
