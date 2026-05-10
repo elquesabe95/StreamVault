@@ -5,6 +5,8 @@ export const revalidate = 0;
 
 import { getMovieDetails, getTvDetails, tmdbImage } from "@/lib/tmdb";
 import { searchPelispedia, getPelispediaSources, getPelispediaEpisodeUrl } from "@/lib/scrapers/pelispedia";
+import { searchCuevana, getCuevanaSources, getCuevanaEpisodeUrl } from "@/lib/scrapers/cuevana";
+import { searchCinecalidad, getCinecalidadSources, getCinecalidadEpisodeUrl } from "@/lib/scrapers/cinecalidad";
 import { resolveStream } from "@/lib/scrapers/resolver";
 
 type PlaybackType = "hls" | "mp4" | "iframe";
@@ -97,6 +99,34 @@ export async function GET(req: NextRequest) {
           }
           const sources = await getPelispediaSources(targetUrl);
           return sources.map((s: any) => ({ ...s, lang: "Latino" }));
+        },
+      },
+      {
+        name: "Cuevana",
+        fn: async () => {
+          const res = await searchCuevana(query);
+          const match = findExactMatch(res);
+          if (!match) return [];
+          let targetUrl = match.url;
+          if (type !== "movie" && match.url.includes("/serie/")) {
+            const epUrl = await getCuevanaEpisodeUrl(match.url, season, episode);
+            if (epUrl) targetUrl = epUrl; else return [];
+          }
+          return await getCuevanaSources(targetUrl);
+        },
+      },
+      {
+        name: "CineCalidad",
+        fn: async () => {
+          const res = await searchCinecalidad(query);
+          const match = findExactMatch(res);
+          if (!match) return [];
+          let targetUrl = match.url;
+          if (type !== "movie") {
+            const epUrl = await getCinecalidadEpisodeUrl(match.url, season, episode);
+            if (epUrl) targetUrl = epUrl; else return [];
+          }
+          return await getCinecalidadSources(targetUrl);
         },
       },
     ];
