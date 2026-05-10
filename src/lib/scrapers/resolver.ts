@@ -149,6 +149,10 @@ export async function resolveStream(url: string): Promise<string | string[]> {
   try {
     // Use proxy for embed69 to bypass IP blocking on Render
     const needsProxy = url.includes("embed69.org");
+    const extraHeaders: Record<string, string> = {};
+    if (url.includes("embed69.org")) {
+      extraHeaders["Referer"] = "https://pelispedia.mov/";
+    }
     const html = await readPage(url, extraHeaders, needsProxy);
 
     if (!html || html.length < 200) {
