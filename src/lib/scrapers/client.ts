@@ -22,7 +22,7 @@ async function tryFetch(url: string, headers: Record<string, string>, timeout: n
 
 function tryCurl(url: string, userAgent: string): string {
   try {
-    const args = ["-s", "-L", "--max-time", "10", "-A", userAgent, url];
+    const args = ["-s", "-L", "--max-time", "6", "-A", userAgent, url];
     const result = spawnSync("curl", args, { encoding: "utf8", maxBuffer: 5 * 1024 * 1024 });
     if (result.stdout?.length > 300) return result.stdout;
   } catch {}
@@ -48,7 +48,7 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   const userAgent = headers["User-Agent"];
 
   // 1. Direct fetch — fastest
-  let html = await tryFetch(url, headers, 8000);
+  let html = await tryFetch(url, headers, 5000);
   if (html && !isCloudflareChallenge(html)) {
     console.log(`[readPage] Direct (${html.length}b): ${url.substring(0, 60)}`);
     return html;

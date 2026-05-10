@@ -90,7 +90,7 @@ export async function resolveStream(url: string): Promise<string | string[]> {
   console.log(`[Resolver] ${url.substring(0, 80)}`);
 
   try {
-    const html = await readPage(url, {}, true);
+    const html = await readPage(url, {}, false);
     if (!html || html.length < 200) {
       console.warn(`[Resolver] Empty/short response`);
       return url;
