@@ -95,7 +95,10 @@ async function getAnimuxFirestoreChannels(): Promise<AnimuxChannel[]> {
       `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT_ID}` +
       `/databases/(default)/documents/channels?key=${FIRESTORE_API_KEY}&pageSize=100${tokenParam}`;
 
-    const data = await readJson<any>(url);
+    // Use direct fetch for Firestore (Google API, no proxy needed)
+    const response = await fetch(url);
+    const data = await response.json();
+    if (!response.ok) throw new Error(`Firestore HTTP ${response.status}`);
     const documents = Array.isArray(data?.documents) ? data.documents : [];
     if (documents.length === 0) break;
 
@@ -118,16 +121,7 @@ async function getAnimuxFirestoreChannels(): Promise<AnimuxChannel[]> {
  * Using the official channels.json endpoint and fallback to DOM/Regex
  */
 export async function getAnimuxChannels(): Promise<AnimuxChannel[]> {
-  console.log("[Animux] Fetching full catalog...");
-
-  const endpoints = [
-    "m3u_channels.json",
-    "channels.json",
-    "all.json",
-    "sports.json",
-    "tv.json",
-    "tvabierta.json"
-  ];
+  console.log("[Animux] Fetching catalog from Firestore...");
 
   const allChannels: AnimuxChannel[] = [];
   const seenIds = new Set<string>();
@@ -140,38 +134,20 @@ export async function getAnimuxChannels(): Promise<AnimuxChannel[]> {
     allChannels.push(channel);
   };
 
+  // Only use Firestore — JSON endpoints are React SPA routes that return HTML
   try {
     const firestoreChannels = await getAnimuxFirestoreChannels();
     console.log(`[Animux] Loaded ${firestoreChannels.length} channels from Firestore`);
     firestoreChannels.forEach(addChannel);
+    return allChannels.sort((a, b) => {
+      const cat = a.category.localeCompare(b.category);
+      if (cat !== 0) return cat;
+      return a.name.localeCompare(b.name);
+    });
   } catch (error) {
-    console.warn("[Animux] Firestore catalog failed, falling back to JSON:", error);
+    console.warn("[Animux] Firestore failed:", error);
+    return [];
   }
-
-  for (const endpoint of endpoints) {
-    try {
-      const url = `${BASE_URL}/${endpoint}`;
-      const jsonData = await readJson<any>(url);
-
-      const channelsList = jsonData?.channels || (Array.isArray(jsonData) ? jsonData : null);
-
-      if (channelsList && Array.isArray(channelsList)) {
-        console.log(`[Animux] Loaded ${channelsList.length} channels from ${endpoint}`);
-        channelsList.forEach((ch: any) => {
-          addChannel(toAnimuxChannel(ch, endpoint.replace(".json", "").replace(/\b\w/g, c => c.toUpperCase())));
-        });
-      }
-    } catch (error) {
-      console.warn(`[Animux] Failed loading ${endpoint}:`, error);
-    }
-  }
-
-  console.log(`[Animux] Total channels aggregated: ${allChannels.length}`);
-  return allChannels.sort((a, b) => {
-    const cat = a.category.localeCompare(b.category);
-    if (cat !== 0) return cat;
-    return a.name.localeCompare(b.name);
-  });
 }
 
 /**
