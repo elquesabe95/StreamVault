@@ -8,585 +8,297 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #0d0d0d; --surface: #161616; --surface2: #1e1e1e;
-    --border: #2a2a2a; --red: #e0001b; --red-dim: #8c0011;
-    --text: #f0f0f0; --muted: #6b6b6b; --live: #ff3b3b; --sidebar: 310px;
+    --bg: #0a0a0a; --surface: #141414; --surface2: #1c1c1c;
+    --border: #272727; --red: #e0001b; --red2: #ff1f3a;
+    --text: #f2f2f2; --muted: #666; --muted2: #444; --live: #ff3b3b;
   }
-  html, body { height: 100%; overflow: hidden; }
-  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; display: flex; flex-direction: column; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
+  .app { display: grid; grid-template-rows: 1fr 52px 48px 148px 36px; height: 100%; }
 
-  header { display: flex; align-items: center; gap: 16px; padding: 0 24px; height: 52px; background: #000; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .logo { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px; color: var(--red); }
-  .logo span { color: var(--text); }
-  .search-wrap { margin-left: auto; display: flex; align-items: center; gap: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; height: 34px; width: 240px; transition: border-color .2s; }
-  .search-wrap:focus-within { border-color: var(--red); }
-  .search-wrap svg { flex-shrink: 0; color: var(--muted); }
-  .search-wrap input { background: none; border: none; outline: none; color: var(--text); font-family: inherit; font-size: 13px; width: 100%; }
-  .search-wrap input::placeholder { color: var(--muted); }
+  .player-section { position: relative; background: #000; overflow: hidden; }
+  .top-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: linear-gradient(to bottom, rgba(0,0,0,.92) 0%, transparent 100%); }
+  .top-left { display: flex; align-items: center; gap: 12px; }
+  .channel-avatar { width: 42px; height: 42px; border-radius: 50%; background: var(--surface2); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+  .channel-avatar img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+  .av-letter { font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: var(--red); }
+  .live-pill { display: inline-flex; align-items: center; gap: 5px; background: var(--red); color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 3px 8px; border-radius: 3px; }
+  .live-pill .dot { width: 6px; height: 6px; background: #fff; border-radius: 50%; animation: blink 1.2s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .top-program-name { font-size: 15px; font-weight: 600; margin-top: 3px; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  .top-channel-name { font-size: 12px; color: rgba(255,255,255,.55); margin-top: 2px; }
+  .source-badge { font-size: 9px; font-weight: 700; letter-spacing: .8px; padding: 2px 6px; border-radius: 3px; margin-left: 6px; flex-shrink: 0; }
+  .src-sv   { background: rgba(224,0,27,.3);   color: #ff8090; border: 1px solid rgba(224,0,27,.4); }
+  .src-iptv { background: rgba(0,180,100,.22); color: #4dffa0; border: 1px solid rgba(0,180,100,.35); }
+  .src-ftv  { background: rgba(255,165,0,.22); color: #ffc04d; border: 1px solid rgba(255,165,0,.35); }
 
-  .main { display: flex; flex: 1; overflow: hidden; }
+  .top-right { display: flex; align-items: center; gap: 10px; }
+  .top-search { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 0 12px; height: 36px; width: 200px; transition: all .2s; }
+  .top-search:focus-within { background: rgba(255,255,255,.13); border-color: var(--red); width: 240px; }
+  .top-search svg { color: rgba(255,255,255,.45); flex-shrink: 0; }
+  .top-search input { background: none; border: none; outline: none; color: #fff; font-family: inherit; font-size: 13px; width: 100%; }
+  .top-search input::placeholder { color: rgba(255,255,255,.3); }
+  .top-btn { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.75); border-radius: 6px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .2s; font-size: 15px; }
+  .top-btn:hover { background: rgba(255,255,255,.16); color: #fff; }
 
-  .player-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #000; }
-  .player-wrap { position: relative; flex: 1; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  #playerFrame { width: 100%; height: 100%; border: none; display: none; }
-  #playerVideo { width: 100%; height: 100%; display: none; object-fit: contain; }
+  #placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; }
+  .ph-icon { font-size: 72px; opacity: .1; }
+  #placeholder h2 { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 3px; color: #252525; }
+  #placeholder p { font-size: 13px; color: #252525; }
 
-  .placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; padding: 40px; position: absolute; inset: 0; transition: opacity .3s; }
-  .placeholder-icon { font-size: 64px; opacity: .2; }
-  .placeholder h2 { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 2px; color: #333; }
-  .placeholder p { font-size: 13px; color: #3a3a3a; }
-
-  .now-bar { background: #0a0a0a; border-top: 1px solid var(--border); padding: 10px 20px; display: flex; align-items: center; gap: 14px; flex-shrink: 0; min-height: 56px; }
-  .live-dot { width: 8px; height: 8px; background: var(--live); border-radius: 50%; animation: pulse 1.5s infinite; flex-shrink: 0; }
-  @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,59,59,.5)} 50%{opacity:.7;box-shadow:0 0 0 5px rgba(255,59,59,0)} }
-  .nb-logo { width: 32px; height: 32px; object-fit: contain; border-radius: 4px; background: var(--surface2); }
-  .nb-name { font-size: 14px; font-weight: 600; }
-  .nb-cat { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .live-badge { margin-left: auto; background: var(--red); color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; padding: 3px 8px; border-radius: 3px; flex-shrink: 0; }
-  .no-channel { color: var(--muted); font-size: 13px; }
-
-  .sidebar { width: var(--sidebar); flex-shrink: 0; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
-  .sidebar-header { padding: 16px 18px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .sidebar-header h3 { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-weight: 500; }
-  .sidebar-count { font-size: 11px; color: var(--red); margin-top: 5px; display: flex; align-items: center; gap: 6px; }
-  .sidebar-count .dot { width: 6px; height: 6px; background: var(--live); border-radius: 50%; animation: pulse 1.5s infinite; }
-
-  .filter-tabs { display: flex; gap: 6px; padding: 10px 14px; overflow-x: auto; flex-shrink: 0; border-bottom: 1px solid var(--border); scrollbar-width: none; }
-  .filter-tabs::-webkit-scrollbar { display: none; }
-  .tab { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); font-family: inherit; font-size: 11px; font-weight: 500; padding: 5px 12px; border-radius: 20px; cursor: pointer; white-space: nowrap; transition: all .2s; }
-  .tab:hover { border-color: var(--red-dim); color: var(--text); }
-  .tab.active { background: var(--red); border-color: var(--red); color: #fff; }
-
-  .channel-list { overflow-y: auto; flex: 1; padding: 6px 0; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
-  .channel-list::-webkit-scrollbar { width: 4px; }
-  .channel-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-  .channel-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; transition: background .15s; border-left: 3px solid transparent; }
-  .channel-item:hover { background: var(--surface2); }
-  .channel-item.active { background: rgba(224,0,27,.08); border-left-color: var(--red); }
-
-  .ch-logo-wrap { width: 42px; height: 42px; flex-shrink: 0; background: var(--surface2); border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); }
-  .ch-logo-wrap img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
-  .ch-letter { font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: var(--red); }
-  .ch-info { flex: 1; min-width: 0; }
-  .ch-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ch-meta { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ch-live { font-size: 9px; font-weight: 700; letter-spacing: 1px; background: var(--red); color: #fff; padding: 2px 6px; border-radius: 3px; flex-shrink: 0; }
-
-  .sk-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; }
-  .sk-box { border-radius: 5px; background: linear-gradient(90deg, var(--surface2) 25%, #252525 50%, var(--surface2) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
-  @keyframes shimmer { to { background-position: -200% 0; } }
-  .error-msg { padding: 24px 20px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.7; }
-  .retry-btn { display: inline-block; margin-top: 12px; background: var(--red); color: #fff; border: none; font-family: inherit; font-size: 12px; font-weight: 600; padding: 8px 18px; border-radius: 5px; cursor: pointer; }
-
-  .player-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.8); color: var(--muted); font-size: 13px; z-index: 5; }
-  .player-loading.hidden { display: none; }
-  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 12px; }
+  #hlsPlayer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; display: none; }
+  #embedFrame { position: absolute; inset: 0; width: 100%; height: 100%; border: none; display: none; }
+  #playerLoading { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(0,0,0,.7); z-index: 8; }
+  #playerError { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: #000; z-index: 8; text-align: center; padding: 30px; }
+  #playerError .err-icon { font-size: 52px; opacity: .2; }
+  #playerError p { color: var(--muted); font-size: 14px; }
+  #playerError small { color: var(--muted2); font-size: 12px; }
+  .spinner { width: 38px; height: 38px; border: 3px solid rgba(255,255,255,.1); border-top-color: var(--red); border-radius: 50%; animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .progress-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: rgba(255,255,255,.1); z-index: 9; }
+  .progress-fill { height: 100%; background: var(--red); width: 0%; }
+
+  .now-bar { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; padding: 0 20px; overflow: hidden; }
+  .nb-live { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--live); font-weight: 600; flex-shrink: 0; }
+  .nb-live .dot { width: 7px; height: 7px; background: var(--live); border-radius: 50%; animation: blink 1.2s infinite; }
+  .nb-sep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; }
+  .nb-logo { width: 28px; height: 28px; object-fit: contain; border-radius: 4px; background: var(--surface2); flex-shrink: 0; }
+  .nb-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nb-meta { font-size: 11px; color: var(--muted); }
+  .nb-right { margin-left: auto; flex-shrink: 0; display: flex; gap: 14px; align-items: center; }
+  .nb-stat { font-size: 11px; color: var(--muted); }
+  .nb-stat span { font-weight: 600; color: rgba(255,255,255,.5); }
+  .nb-no { color: var(--muted); font-size: 13px; }
+
+  .filter-row { background: var(--surface); display: flex; align-items: center; padding: 0 8px; border-bottom: 1px solid var(--border); overflow: hidden; }
+  .filter-arrow { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 0 6px; height: 100%; flex-shrink: 0; transition: color .2s; }
+  .filter-arrow:hover { color: var(--text); }
+  .filter-tabs { display: flex; gap: 4px; overflow-x: auto; flex: 1; padding: 0 4px; scrollbar-width: none; align-items: center; }
+  .filter-tabs::-webkit-scrollbar { display: none; }
+  .tab { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); font-family: inherit; font-size: 11px; font-weight: 500; padding: 5px 12px; border-radius: 20px; cursor: pointer; white-space: nowrap; transition: all .2s; flex-shrink: 0; }
+  .tab:hover { border-color: rgba(224,0,27,.4); color: var(--text); }
+  .tab.active { background: var(--red); border-color: var(--red); color: #fff; }
+  .tab-count { font-size: 10px; opacity: .65; margin-left: 3px; }
+
+  .channel-bar-wrap { background: var(--bg); display: flex; align-items: center; overflow: hidden; position: relative; }
+  .bar-arrow { position: absolute; z-index: 5; background: linear-gradient(to right, var(--bg) 55%, transparent); border: none; color: var(--muted); cursor: pointer; height: 100%; width: 50px; display: flex; align-items: center; padding-left: 8px; font-size: 22px; transition: color .2s; }
+  .bar-arrow.right { right: 0; left: auto; background: linear-gradient(to left, var(--bg) 55%, transparent); padding-left: 0; padding-right: 8px; justify-content: flex-end; }
+  .bar-arrow:hover { color: var(--text); }
+  .channel-bar { display: flex; gap: 8px; overflow-x: auto; padding: 10px 54px; flex: 1; scrollbar-width: none; scroll-behavior: smooth; }
+  .channel-bar::-webkit-scrollbar { display: none; }
+
+  .ch-card { flex-shrink: 0; width: 88px; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; padding: 7px 5px 6px; border-radius: 10px; border: 2px solid transparent; transition: all .18s; position: relative; background: var(--surface); }
+  .ch-card:hover { background: var(--surface2); border-color: var(--border); }
+  .ch-card.active { background: rgba(224,0,27,.1); border-color: var(--red); }
+  .ch-card .live-dot { position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; background: var(--live); border-radius: 50%; animation: blink 1.5s infinite; }
+  .ch-src { position: absolute; top: 5px; left: 5px; font-size: 7px; font-weight: 700; letter-spacing: .5px; padding: 1px 4px; border-radius: 2px; }
+  .ch-src.sv   { background: rgba(224,0,27,.35);   color: #ff8090; }
+  .ch-src.iptv { background: rgba(0,180,100,.25);  color: #4dffaa; }
+  .ch-src.ftv  { background: rgba(255,165,0,.25);  color: #ffc04d; }
+  .ch-thumb { width: 56px; height: 56px; background: var(--surface2); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); }
+  .ch-thumb img { width: 100%; height: 100%; object-fit: contain; padding: 5px; }
+  .ch-letter { font-family: 'Bebas Neue', sans-serif; font-size: 22px; color: var(--red); }
+  .ch-name { font-size: 10px; font-weight: 500; color: var(--text); text-align: center; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; padding: 0 2px; }
+  .ch-card.active .ch-name { color: var(--red2); }
+
+  .sk-card { flex-shrink: 0; width: 88px; height: 108px; border-radius: 10px; background: var(--surface); display: flex; flex-direction: column; align-items: center; padding-top: 12px; gap: 8px; }
+  .sk-box { background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 6px; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  .bar-msg { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); font-size: 12px; width: 100%; }
+
+  .ticker-wrap { background: #0d0d0d; border-top: 1px solid var(--border); display: flex; align-items: center; overflow: hidden; }
+  .ticker-label { background: var(--red); color: #fff; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; padding: 0 12px; height: 100%; display: flex; align-items: center; flex-shrink: 0; white-space: nowrap; }
+  .ticker-track { flex: 1; overflow: hidden; }
+  .ticker-inner { display: flex; gap: 40px; animation: ticker-move 70s linear infinite; white-space: nowrap; }
+  @keyframes ticker-move { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+  .ticker-item { font-size: 11px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .ticker-item .t-sep { color: var(--red); }
+  .ticker-item strong { color: rgba(255,255,255,.6); }
 </style>
 </head>
 <body>
+<div class="app">
 
-<header>
-  <div class="logo">Stream<span>TV</span></div>
-  <div class="search-wrap">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-    <input type="text" id="searchInput" placeholder="Buscar canal...">
-  </div>
-</header>
-
-<div class="main">
-  <div class="player-area">
-    <div class="player-wrap" id="playerWrap">
-      <div class="placeholder" id="placeholder">
-        <div class="placeholder-icon">📡</div>
-        <h2>Selecciona un canal</h2>
-        <p>Elige un canal de la lista para comenzar a ver en vivo</p>
+  <div class="player-section">
+    <div class="top-bar">
+      <div class="top-left">
+        <div class="channel-avatar" id="topAvatar"><span class="av-letter">TV</span></div>
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span class="live-pill"><span class="dot"></span>EN DIRECTO</span>
+            <span class="source-badge" id="topBadge" style="display:none"></span>
+          </div>
+          <div class="top-program-name" id="topName">Selecciona un canal</div>
+          <div class="top-channel-name" id="topMeta">StreamTV</div>
+        </div>
       </div>
-      <div class="player-loading hidden" id="playerLoading">
-        <div><div class="spinner"></div><p>Conectando al stream...</p></div>
+      <div class="top-right">
+        <div class="top-search">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="searchInput" placeholder="Buscar canal...">
+        </div>
+        <button class="top-btn" onclick="toggleFullscreen()" title="Pantalla completa">⛶</button>
       </div>
-      <iframe id="playerFrame" allowfullscreen allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="no-referrer"></iframe>
-      <video id="playerVideo" playsinline controls></video>
     </div>
-    <div class="now-bar" id="nowBar">
-      <span class="no-channel">Ningún canal seleccionado</span>
+
+    <div id="placeholder">
+      <div class="ph-icon">📡</div>
+      <h2>Selecciona un canal</h2>
+      <p>Elige un canal de la barra inferior para ver en vivo</p>
     </div>
+    <video id="hlsPlayer" controls playsinline></video>
+    <iframe id="embedFrame" allowfullscreen allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="no-referrer"></iframe>
+    <div id="playerLoading"><div class="spinner"></div><span style="font-size:12px;color:var(--muted)" id="loadMsg">Cargando stream...</span></div>
+    <div id="playerError"><div class="err-icon">📡</div><p>Canal no disponible</p><small id="errDetail"></small></div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
   </div>
 
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <h3>Programación</h3>
-      <div class="sidebar-count"><span class="dot"></span><span id="countText">Cargando canales...</span></div>
-    </div>
-    <div class="filter-tabs" id="filterTabs">
-      <button class="tab active" data-cat="Todos">Todos</button>
-    </div>
-    <div class="channel-list" id="channelList"></div>
-  </aside>
+  <div class="now-bar" id="nowBar">
+    <span class="nb-no">Ningún canal seleccionado</span>
+  </div>
+
+  <div class="filter-row">
+    <button class="filter-arrow" id="fLeft">&#8249;</button>
+    <div class="filter-tabs" id="filterTabs"><button class="tab active" data-cat="Todos">Todos</button></div>
+    <button class="filter-arrow" id="fRight">&#8250;</button>
+  </div>
+
+  <div class="channel-bar-wrap">
+    <button class="bar-arrow" id="bLeft">&#8249;</button>
+    <div class="channel-bar" id="channelBar"><div class="bar-msg"><div class="spinner" style="width:22px;height:22px;border-width:2px"></div>Cargando canales...</div></div>
+    <button class="bar-arrow right" id="bRight">&#8250;</button>
+  </div>
+
+  <div class="ticker-wrap">
+    <div class="ticker-label">EN VIVO AHORA</div>
+    <div class="ticker-track"><div class="ticker-inner" id="tickerInner"></div></div>
+  </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.7/hls.min.js"></script>
 <script>
-var API_BASE   = 'https://streamvault-vj0p.onrender.com/api/v1/tv/all';
-var EMBED_BASE = 'https://streamvault-vj0p.onrender.com/embed/live/';
+var apiBase = 'https://streamvault-vj0p.onrender.com';
+var allChannels=[], activeIdx=-1, activeCategory='Todos', hlsInstance=null, progressAnim=null;
+var elPH=document.getElementById('placeholder'), elHLS=document.getElementById('hlsPlayer'), elEmbed=document.getElementById('embedFrame'), elLoading=document.getElementById('playerLoading'), elError=document.getElementById('playerError'), elErrD=document.getElementById('errDetail'), elLoadMsg=document.getElementById('loadMsg'), elProg=document.getElementById('progressFill'), elBar=document.getElementById('channelBar');
 
-var allChannels    = [];
-var activeIdx      = -1;
-var activeCategory = 'Todos';
-var hlsInstance    = null;
+function showState(s){ elPH.style.display=s==='idle'?'flex':'none'; elHLS.style.display=s==='hls'?'block':'none'; elEmbed.style.display=s==='embed'?'block':'none'; elLoading.style.display=s==='loading'?'flex':'none'; elError.style.display=s==='error'?'flex':'none'; }
+function killHls(){ if(hlsInstance){hlsInstance.destroy();hlsInstance=null;} elHLS.src=''; elEmbed.src=''; clearInterval(progressAnim); elProg.style.width='0%'; }
+function startProgress(){ clearInterval(progressAnim); var p=0; progressAnim=setInterval(function(){ p=(p+0.035)%100; elProg.style.width=p+'%'; },400); }
 
-var playerFrame   = document.getElementById('playerFrame');
-var playerVideo   = document.getElementById('playerVideo');
-var placeholder   = document.getElementById('placeholder');
-var playerLoading = document.getElementById('playerLoading');
+function playHls(url){ killHls(); showState('loading'); elLoadMsg.textContent='Conectando al stream...';
+  if(Hls.isSupported()){ hlsInstance=new Hls({enableWorker:false,lowLatencyMode:true,maxBufferLength:10});
+    hlsInstance.loadSource(url); hlsInstance.attachMedia(elHLS);
+    hlsInstance.on(Hls.Events.MANIFEST_PARSED,function(){ showState('hls'); elHLS.play().catch(function(){}); startProgress(); });
+    hlsInstance.on(Hls.Events.ERROR,function(e,d){ if(d.fatal){ showState('error'); elErrD.textContent='Error HLS: '+d.type; }});
+  } else if(elHLS.canPlayType('application/vnd.apple.mpegurl')){ elHLS.src=url; elHLS.addEventListener('loadedmetadata',function(){ showState('hls'); elHLS.play().catch(function(){}); startProgress(); },{once:true});
+    elHLS.addEventListener('error',function(){ showState('error'); elErrD.textContent='Stream no disponible'; },{once:true});
+  } else { showState('error'); elErrD.textContent='Navegador no compatible con HLS'; }}
 
-// Detectar si la URL del canal es del scraper de StreamVault
-function isScraperURL(url) {
-  return url && (url.includes('/api/v1/scraper') || url.includes('streamvault-vj0p.onrender.com'));
+function playEmbed(slug){ killHls(); elEmbed.src='https://streamvault-vj0p.onrender.com/embed/live/'+slug; showState('embed'); startProgress(); }
+
+function playYouTube(url){ killHls(); elEmbed.src=url; showState('embed'); startProgress(); }
+
+function play(ch){
+  var url=ch.url||''; if(!url){ showState('error'); elErrD.textContent='Sin URL'; return; }
+  if(url.includes('youtube.com/embed')||url.includes('youtu.be')){ playYouTube(url); return; }
+  if(url.includes('/scraper')){ var m=url.match(/[?&]slug=([^&]+)/); if(m){ playEmbed(decodeURIComponent(m[1])); return; }}
+  playHls(url);
 }
 
-// Detectar si la URL es una pagina web (no se puede embeber)
-function isWebPageURL(url) {
-  return url && (url.includes('teleonline.org/canal/') || url.includes('teleonline.org/'));
-}
+var SRC_CONFIG={ sv:{label:'SV',cls:'src-sv'}, iptv:{label:'IPTV',cls:'src-iptv'}, ftv:{label:'⚽',cls:'src-ftv'}, yt:{label:'YT',cls:'src-iptv'} };
 
-// Convertir pagina de teleonline a URL del scraper
-function toScraperURL(url) {
-  var m = url.match(/\/canal\/([^/]+)/);
-  if (m) return 'https://streamvault-vj0p.onrender.com/api/v1/scraper?slug=' + m[1] + '&provider=teleonline';
-  return url;
-}
+function updateTopBar(ch){ var logo=ch.logo||''; var letter=ch.name.charAt(0).toUpperCase(); var av=document.getElementById('topAvatar');
+  av.innerHTML=logo?'<img src="'+logo+'" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'block\'"><span class="av-letter" style="display:none">'+letter+'</span>':'<span class="av-letter">'+letter+'</span>';
+  document.getElementById('topName').textContent=ch.name;
+  document.getElementById('topMeta').textContent=[ch.category,ch.country_name||ch.country].filter(Boolean).join(' · ')||'Canal de TV';
+  var badge=document.getElementById('topBadge'); var cfg=SRC_CONFIG[ch.source]||SRC_CONFIG.sv;
+  badge.textContent=cfg.label; badge.className='source-badge '+cfg.cls; badge.style.display='inline-flex'; }
 
-// Extraer slug para canales del scraper
-function getSlug(ch) {
-  if (ch.slug) return ch.slug;
-  var url = ch.url || '';
-  if (url) {
-    var m = url.match(/[?&]slug=([^&]+)/);
-    if (m) return decodeURIComponent(m[1]);
-  }
-  return ch.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '').replace(/-+/g, '-');
-}
+function updateNowBar(ch){ var logo=ch.logo||'';
+  var svN=allChannels.filter(function(c){return c.source==='sv';}).length;
+  var ipN=allChannels.filter(function(c){return c.source==='iptv';}).length;
+  var ftN=allChannels.filter(function(c){return c.source==='ftv';}).length;
+  document.getElementById('nowBar').innerHTML='<div class="nb-live"><span class="dot"></span>EN DIRECTO</div><div class="nb-sep"></div>'+(logo?'<img class="nb-logo" src="'+logo+'" onerror="this.style.display=\'none\'">':'')+'<div><div class="nb-name">'+ch.name+'</div><div class="nb-meta">'+(ch.category||'')+'</div></div><div class="nb-right"><div class="nb-stat">Total <span>'+allChannels.length+'</span></div>'+(svN?'<div class="nb-stat">SV <span>'+svN+'</span></div>':'')+(ipN?'<div class="nb-stat">IPTV <span>'+ipN+'</span></div>':'')+(ftN?'<div class="nb-stat">⚽ <span>'+ftN+'</span></div>':'')+'</div>'; }
 
-// Reproducir stream m3u8 directo con HLS.js
-function playDirectStream(url) {
-  stopPlayer();
-  playerLoading.classList.remove('hidden');
-  placeholder.style.display = 'none';
+function buildTicker(){ var names=allChannels.slice(0,40).map(function(c){return c.name;}); var dbl=names.concat(names);
+  document.getElementById('tickerInner').innerHTML=dbl.map(function(n){return '<span class="ticker-item"><span class="t-sep">★</span><strong>'+n+'</strong></span>';}).join(''); }
 
-  if (Hls.isSupported()) {
-    var hls = new Hls();
-    hlsInstance = hls;
-    hls.loadSource(url);
-    hls.attachMedia(playerVideo);
-    hls.on(Hls.Events.MANIFEST_PARSED, function() {
-      playerVideo.style.display = 'block';
-      playerFrame.style.display = 'none';
-      playerVideo.play().catch(function() {});
-      playerLoading.classList.add('hidden');
-    });
-    hls.on(Hls.Events.ERROR, function(event, data) {
-      if (data.fatal) {
-        playerLoading.querySelector('p').textContent = 'Error al cargar el stream';
-      }
-    });
-  } else if (playerVideo.canPlayType('application/vnd.apple.mpegurl')) {
-    playerVideo.src = url;
-    playerVideo.style.display = 'block';
-    playerFrame.style.display = 'none';
-    playerVideo.play().catch(function() {});
-    playerLoading.classList.add('hidden');
-  } else {
-    // Fallback: usar iframe
-    playerFrame.src = url;
-    playerFrame.style.display = 'block';
-    playerVideo.style.display = 'none';
-    playerLoading.classList.add('hidden');
-  }
-}
+function buildTabs(){ var seen=['Todos']; allChannels.forEach(function(ch){ var c=ch.category||''; if(c&&seen.indexOf(c)===-1) seen.push(c); });
+  seen.sort(function(a,b){ return a==='Todos'?-1:b==='Todos'?1:a.localeCompare(b); });
+  var tabs=document.getElementById('filterTabs');
+  tabs.innerHTML=seen.map(function(cat){ var count=cat==='Todos'?allChannels.length:allChannels.filter(function(c){return (c.category||'')===cat;}).length;
+    return '<button class="tab'+(cat===activeCategory?' active':'')+'" data-cat="'+cat+'">'+cat+'<span class="tab-count">('+count+')</span></button>'; }).join('');
+  tabs.querySelectorAll('.tab').forEach(function(btn){ btn.addEventListener('click',function(){
+    tabs.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');}); btn.classList.add('active');
+    activeCategory=btn.dataset.cat; activeIdx=-1; renderBar(); }); });
+  document.getElementById('fLeft').onclick=function(){ tabs.scrollBy({left:-200,behavior:'smooth'}); };
+  document.getElementById('fRight').onclick=function(){ tabs.scrollBy({left:200,behavior:'smooth'}); }; }
 
-function stopPlayer() {
-  if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-  playerVideo.pause();
-  playerVideo.src = '';
-  playerVideo.style.display = 'none';
-  playerFrame.src = '';
-  playerFrame.style.display = 'none';
-  playerFrame.onload = null;
-}
+function getFiltered(){ var q=document.getElementById('searchInput').value.trim().toLowerCase(); var list=allChannels.slice();
+  if(activeCategory!=='Todos') list=list.filter(function(c){return (c.category||'')===activeCategory;});
+  if(q) list=list.filter(function(c){return c.name.toLowerCase().indexOf(q)!==-1;}); return list; }
 
-function playChannel(ch) {
-  var url = ch.url || '';
-  var urls = ch.urls || [];
+function renderBar(){ var channels=getFiltered(); if(!channels.length){ elBar.innerHTML='<div class="bar-msg">No se encontraron canales</div>'; return; }
+  var html=''; channels.forEach(function(ch,i){ var logo=ch.logo||''; var letter=ch.name.charAt(0).toUpperCase(); var srcCls=ch.source==='iptv'?'iptv':ch.source==='ftv'?'ftv':'sv';
+    var srcLbl=ch.source==='iptv'?'IPTV':ch.source==='ftv'?'⚽':ch.source==='yt'?'YT':'SV';
+    var logoHtml=logo?'<img src="'+logo+'" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'block\'"><span class="ch-letter" style="display:none">'+letter+'</span>':'<span class="ch-letter">'+letter+'</span>';
+    html+='<div class="ch-card'+(activeIdx===i?' active':'')+'" id="cc'+i+'" onclick="select_ch('+i+')"><span class="live-dot"></span><span class="ch-src '+srcCls+'">'+srcLbl+'</span><div class="ch-thumb">'+logoHtml+'</div><div class="ch-name">'+ch.name+'</div></div>'; });
+  elBar.innerHTML=html; }
 
-  // Si la URL es una pagina web de teleonline, convertirla a scraper
-  if (isWebPageURL(url)) {
-    url = toScraperURL(url);
-  }
+function showSkeletons(){ var h=''; for(var i=0;i<14;i++) h+='<div class="sk-card"><div class="sk-box" style="width:56px;height:56px;border-radius:8px"></div><div class="sk-box" style="width:64px;height:9px;border-radius:4px"></div></div>'; elBar.innerHTML=h; }
+function select_ch(i){ var channels=getFiltered(); var ch=channels[i]; if(!ch) return; activeIdx=i; renderBar();
+  var card=document.getElementById('cc'+i); if(card) card.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+  play(ch); updateTopBar(ch); updateNowBar(ch); }
 
-  // Si tiene URLs múltiples, usar la primera directa
-  if (urls.length > 0) {
-    var firstUrl = urls[0];
-    if (firstUrl.includes('.m3u8') || firstUrl.includes('.mp4') || firstUrl.includes('youtube.com')) {
-      if (firstUrl.includes('youtube.com')) {
-        playYouTube(firstUrl);
-        return;
-      }
-      playDirectStream(firstUrl);
-      return;
-    }
-  }
+function toggleFullscreen(){ var el=document.querySelector('.player-section');
+  if(!document.fullscreenElement){ if(el.requestFullscreen) el.requestFullscreen(); } else { if(document.exitFullscreen) document.exitFullscreen(); }}
 
-  // Si la URL es del scraper de StreamVault
-  if (isScraperURL(url)) {
-    playScraperChannel(ch, url);
-    return;
-  }
+var searchTimer; document.getElementById('searchInput').addEventListener('input',function(){ clearTimeout(searchTimer); searchTimer=setTimeout(function(){ activeIdx=-1; renderBar(); },250); });
+document.getElementById('bLeft').onclick=function(){ elBar.scrollBy({left:-320,behavior:'smooth'}); };
+document.getElementById('bRight').onclick=function(){ elBar.scrollBy({left:320,behavior:'smooth'}); };
 
-  // Si es YouTube
-  if (url && url.includes('youtube.com')) {
-    playYouTube(url);
-    return;
-  }
+function fetchJSON(url,ms,headers){ ms=ms||12000;
+  return Promise.race([fetch(url,{headers:headers}).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }),
+    new Promise(function(_,rej){ setTimeout(function(){rej(new Error('Timeout'));},ms); }])}
 
-  // Si es un stream directo (m3u8/mp4)
-  if (url && (url.includes('.m3u8') || url.includes('.mp4'))) {
-    playDirectStream(url);
-    return;
-  }
+// Source loaders
+function loadSV(){ return fetchJSON(apiBase+'/api/v1/tv/all?page=1&limit=200',15000).then(function(data){
+    return (data.results||[]).filter(function(c){return c.url;}).map(function(ch){
+      var url=ch.url||''; if(url.startsWith('/')) url=apiBase+url; return {name:ch.name,logo:ch.logo||'',url:url,category:ch.category||'General',country:'CO',source:'sv'}; });});}
 
-  // Último intento: usar embed con el slug
-  if (url) {
-    playScraperChannel(ch, url);
-    return;
-  }
+function loadFTV(){ return fetchJSON('https://apifutboltv.onrender.com/api/channels',12000,{'x-authorizer':'colombia-tv-access'}).then(function(data){
+    return (Array.isArray(data)?data:[]).filter(function(c){return c.url_decoded;}).map(function(c){
+      return {name:c.nombre,logo:'',url:c.url_decoded,category:'Deportes',country:'CO',source:'ftv'}; });});}
 
-  // Nada funciona
-  stopPlayer();
-  placeholder.innerHTML = '<div class="placeholder-icon">⚠️</div><h2>Canal no disponible</h2><p>Este canal no tiene stream activo en este momento</p>';
-  placeholder.style.display = 'flex';
-}
+function loadYT(){ return Promise.resolve([
+  {name:'CNN Español',logo:'',category:'Noticias',country:'Intl',url:'https://www.youtube.com/embed/live_stream?channel=UC_lEiu6917IJz03TnntWUaQ&autoplay=1',source:'yt'},
+  {name:'DW Español',logo:'',category:'Noticias',country:'Alemania',url:'https://www.youtube.com/embed/live_stream?channel=UCT4Jg8h03dD0iN3Pb5L0PMA&autoplay=1',source:'yt'},
+  {name:'France 24 Español',logo:'',category:'Noticias',country:'Francia',url:'https://www.youtube.com/embed/live_stream?channel=UCUdOoVWuWmgo1wByzcsyKDQ&autoplay=1',source:'yt'},
+  {name:'Euronews Español',logo:'',category:'Noticias',country:'Europa',url:'https://www.youtube.com/embed/live_stream?channel=UCyoGb3SMlTlB8CLGVH4c8Rw&autoplay=1',source:'yt'},
+  {name:'RTVE 24h',logo:'',category:'Noticias',country:'España',url:'https://www.youtube.com/embed/live_stream?channel=UC7QZIf0dta-XPXsp9Hv4dTw&autoplay=1',source:'yt'},
+  {name:'Caracol Ahora',logo:'',category:'Colombia',country:'CO',url:'https://www.youtube.com/embed/live_stream?channel=UC2Xq2PK-got3Rtz9ZJ32hLQ&autoplay=1',source:'yt'},
+  {name:'Canal RCN',logo:'',category:'Colombia',country:'CO',url:'https://www.youtube.com/embed/live_stream?channel=UCSCAJJ1RJ4rfRTVW4gjYTpQ&autoplay=1',source:'yt'},
+  {name:'Milenio TV',logo:'',category:'México',country:'MX',url:'https://www.youtube.com/embed/live_stream?channel=UCFxHplbcoJK9m70c4VyTIxg&autoplay=1',source:'yt'},
+  {name:'Foro TV',logo:'',category:'México',country:'MX',url:'https://www.youtube.com/embed/live_stream?channel=UCpjkQFR6E1cBoAuFMwnNIJw&autoplay=1',source:'yt'},
+  {name:'TN Todo Noticias',logo:'',category:'Argentina',country:'AR',url:'https://www.youtube.com/embed/live_stream?channel=UCj6PcyLvpnIRT_2W_mwa9Aw&autoplay=1',source:'yt'},
+  {name:'ESPN Fans',logo:'',category:'Deportes',country:'Intl',url:'https://www.youtube.com/embed/live_stream?channel=UCnazwCR4RYUbSCbnZ9xeTAg&autoplay=1',source:'yt'},
+  {name:'TUDN México',logo:'',category:'Deportes',country:'MX',url:'https://www.youtube.com/embed/live_stream?channel=UC1aKBoCLU0RZaCVzjWox_GA&autoplay=1',source:'yt'},
+  {name:'Cartoon Network LA',logo:'',category:'Infantil',country:'Intl',url:'https://www.youtube.com/embed/live_stream?channel=UCvYMjV5UjgyCg9kLozcNkBA&autoplay=1',source:'yt'},
+]);}
 
-function playYouTube(url) {
-  stopPlayer();
-  placeholder.style.display = 'none';
-  playerFrame.style.display = 'block';
-  playerVideo.style.display = 'none';
-  playerFrame.src = url;
-}
+function merge(arrays){ var seen={},out=[];
+  [].concat.apply([],arrays).forEach(function(ch){ var key=ch.name.toLowerCase().trim().replace(/\s+/g,' ');
+    if(!seen[key]){ seen[key]=true; out.push(ch); }});
+  var order={sv:0,yt:1,ftv:2,iptv:3};
+  out.sort(function(a,b){ var od=(order[a.source]||0)-(order[b.source]||0); return od!==0?od:a.name.localeCompare(b.name); }); return out; }
 
-// Modificar playScraperChannel para aceptar url directa
-function playScraperChannel(ch, scraperUrl) {
-  stopPlayer();
-  playerLoading.classList.remove('hidden');
-  placeholder.style.display = 'none';
-
-  // Si ya es una URL del scraper, resolverla primero
-  if (scraperUrl && scraperUrl.includes('/api/v1/scraper')) {
-    fetch(scraperUrl)
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        if (data.success && data.sources && data.sources.length) {
-          var streamUrl = data.sources[0].url;
-          if (streamUrl.includes('.m3u8')) {
-            playDirectStream(streamUrl);
-          } else if (streamUrl.includes('youtube.com')) {
-            playYouTube(streamUrl);
-          } else {
-            playerFrame.style.display = 'block';
-            playerVideo.style.display = 'none';
-            playerFrame.src = streamUrl;
-            playerLoading.classList.add('hidden');
-          }
-        } else {
-          playerLoading.classList.add('hidden');
-          placeholder.innerHTML = '<div class="placeholder-icon">⚠️</div><h2>Canal caído</h2><p>El stream no está disponible en este momento</p>';
-          placeholder.style.display = 'flex';
-        }
-      })
-      .catch(function() {
-        playerLoading.classList.add('hidden');
-        placeholder.innerHTML = '<div class="placeholder-icon">⚠️</div><h2>Error</h2><p>No se pudo conectar al servidor</p>';
-        placeholder.style.display = 'flex';
-      });
-    return;
-  }
-
-  // Si no es scraper, usar embed
-  var slug = getSlug(ch);
-  var embedUrl = EMBED_BASE + slug;
-  playerFrame.style.display = 'block';
-  playerVideo.style.display = 'none';
-  playerFrame.onload = function() { playerLoading.classList.add('hidden'); };
-  playerFrame.src = embedUrl;
-  setTimeout(function() { playerLoading.classList.add('hidden'); }, 15000);
-}
-
-function showSkeletons() {
-  var html = '';
-  for (var i = 0; i < 8; i++) {
-    html += '<div class="sk-item">'
-      + '<div class="sk-box" style="width:42px;height:42px;border-radius:6px;flex-shrink:0"></div>'
-      + '<div style="flex:1;display:flex;flex-direction:column;gap:7px">'
-      + '<div class="sk-box" style="height:13px;width:70%"></div>'
-      + '<div class="sk-box" style="height:11px;width:45%"></div>'
-      + '</div></div>';
-  }
-  document.getElementById('channelList').innerHTML = html;
-}
-
-function getFiltered() {
-  // Si hay resultados de búsqueda en vivo de la API, usarlos
-  if (svSearchResults.length > 0) {
-    return svSearchResults;
-  }
-
-  var q = document.getElementById('searchInput').value.trim().toLowerCase();
-  var list = allChannels.slice();
-  if (activeCategory !== 'Todos') {
-    list = list.filter(function(ch) {
-      return (ch.category || ch.categoria || '') === activeCategory;
-    });
-  }
-  if (q) {
-    list = list.filter(function(ch) {
-      return ch.name.toLowerCase().indexOf(q) !== -1;
-    });
-  }
-  return list;
-}
-
-function renderList() {
-  var channels = getFiltered();
-  var list = document.getElementById('channelList');
-  if (!channels.length) {
-    list.innerHTML = '<div class="error-msg">No se encontraron canales</div>';
-    return;
-  }
-  var html = '';
-  for (var i = 0; i < channels.length; i++) {
-    var ch = channels[i];
-    var isActive = activeIdx === i;
-    var cat = ch.category || ch.categoria || '';
-    var country = ch.country || ch.pais || '';
-    var logo = ch.logo || ch.thumbnail || '';
-    var letter = ch.name.charAt(0).toUpperCase();
-    var meta = [cat, country].filter(Boolean).join(' \u00b7 ') || 'Canal de TV';
-    var logoHtml = logo
-      ? '<img src="' + logo + '" alt="" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'block\'">'
-        + '<span class="ch-letter" style="display:none">' + letter + '</span>'
-      : '<span class="ch-letter">' + letter + '</span>';
-    html += '<div class="channel-item' + (isActive ? ' active' : '') + '" onclick="selectChannel(' + i + ')">'
-      + '<div class="ch-logo-wrap">' + logoHtml + '</div>'
-      + '<div class="ch-info"><div class="ch-name">' + ch.name + '</div><div class="ch-meta">' + meta + '</div></div>'
-      + '<span class="ch-live">EN VIVO</span>'
-      + '</div>';
-  }
-  list.innerHTML = html;
-}
-
-function buildTabs() {
-  var seen = ['Todos'];
-  for (var i = 0; i < allChannels.length; i++) {
-    var c = allChannels[i].category || allChannels[i].categoria || '';
-    if (c && seen.indexOf(c) === -1) seen.push(c);
-  }
-  var html = '';
-  for (var j = 0; j < seen.length; j++) {
-    var cat = seen[j];
-    html += '<button class="tab' + (cat === activeCategory ? ' active' : '') + '" data-cat="' + cat + '">' + cat + '</button>';
-  }
-  var tabs = document.getElementById('filterTabs');
-  tabs.innerHTML = html;
-  tabs.querySelectorAll('.tab').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      tabs.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
-      btn.classList.add('active');
-      activeCategory = btn.dataset.cat;
-      activeIdx = -1;
-      renderList();
-    });
-  });
-}
-
-function selectChannel(i) {
-  var channels = getFiltered();
-  var ch = channels[i];
-  if (!ch) return;
-  activeIdx = i;
-  renderList();
-  playChannel(ch);
-
-  var logo = ch.logo || ch.thumbnail || '';
-  var cat = ch.category || ch.categoria || 'Canal';
-  var country = ch.country || ch.pais || '';
-  var meta = [cat, country].filter(Boolean).join(' \u00b7 ');
-  document.getElementById('nowBar').innerHTML =
-    '<div class="live-dot"></div>'
-    + (logo ? '<img class="nb-logo" src="' + logo + '" alt="" onerror="this.style.display=\'none\'">' : '')
-    + '<div><div class="nb-name">' + ch.name + '</div><div class="nb-cat">' + meta + '</div></div>'
-    + '<span class="live-badge">EN VIVO</span>';
-}
-
-var searchTimer;
-document.getElementById('searchInput').addEventListener('input', function() {
-  clearTimeout(searchTimer);
-  var q = this.value.trim();
-  if (!q) { svSearchResults = []; activeIdx = -1; renderList(); return; }
-  searchTimer = setTimeout(function() { searchChannelsLive(q); }, 400);
-});
-
-// Buscar en la API de StreamVault en tiempo real
-// Cargar canales de TVLibre (deportes con streams directos)
-async function loadTVLibreChannels() {
-  try {
-    var res = await fetch('https://apifutboltv.onrender.com/api/channels', {
-      headers: { 'x-authorizer': 'colombia-tv-access' }
-    });
-    var channels = await res.json();
-    if (!Array.isArray(channels)) return [];
-    var seen = new Set();
-    var result = [];
-    for (var i = 0; i < channels.length; i++) {
-      var ch = channels[i];
-      var name = ch.nombre || '';
-      var url = ch.url_decoded || '';
-      if (!name || !url) continue;
-      if (seen.has(name.toLowerCase())) continue;
-      seen.add(name.toLowerCase());
-      result.push({ name: name, logo: '', category: 'Deportes', country: 'TVLibre', url: url, provider: 'TVLibre' });
-    }
-    return result;
-  } catch(e) { return []; }
-}
-// Canales YouTube 24/7 curados
-function loadCuratedChannels() {
-  return Promise.resolve([
-    { name:'CNN en Español', logo:'', category:'Noticias', country:'Intl', url:'https://www.youtube.com/embed/live_stream?channel=UC_lEiu6917IJz03TnntWUaQ&autoplay=1', provider:'YouTube' },
-    { name:'DW Español', logo:'', category:'Noticias', country:'Alemania', url:'https://www.youtube.com/embed/live_stream?channel=UCT4Jg8h03dD0iN3Pb5L0PMA&autoplay=1', provider:'YouTube' },
-    { name:'France 24 Español', logo:'', category:'Noticias', country:'Francia', url:'https://www.youtube.com/embed/live_stream?channel=UCUdOoVWuWmgo1wByzcsyKDQ&autoplay=1', provider:'YouTube' },
-    { name:'Euronews Español', logo:'', category:'Noticias', country:'Europa', url:'https://www.youtube.com/embed/live_stream?channel=UCyoGb3SMlTlB8CLGVH4c8Rw&autoplay=1', provider:'YouTube' },
-    { name:'RTVE 24h', logo:'', category:'Noticias', country:'España', url:'https://www.youtube.com/embed/live_stream?channel=UC7QZIf0dta-XPXsp9Hv4dTw&autoplay=1', provider:'YouTube' },
-    { name:'Caracol Ahora', logo:'', category:'Colombia', country:'CO', url:'https://www.youtube.com/embed/live_stream?channel=UC2Xq2PK-got3Rtz9ZJ32hLQ&autoplay=1', provider:'YouTube' },
-    { name:'Canal RCN', logo:'', category:'Colombia', country:'CO', url:'https://www.youtube.com/embed/live_stream?channel=UCSCAJJ1RJ4rfRTVW4gjYTpQ&autoplay=1', provider:'YouTube' },
-    { name:'Señal Colombia', logo:'', category:'Colombia', country:'CO', url:'https://www.youtube.com/embed/live_stream?channel=UCfInPELFM8sHKZ4Ee4BDPFA&autoplay=1', provider:'YouTube' },
-    { name:'City TV', logo:'', category:'Colombia', country:'CO', url:'https://www.youtube.com/embed/live_stream?channel=UCv5Oy_TJFvGKXjeNzzJE_PQ&autoplay=1', provider:'YouTube' },
-    { name:'Milenio TV', logo:'', category:'México', country:'MX', url:'https://www.youtube.com/embed/live_stream?channel=UCFxHplbcoJK9m70c4VyTIxg&autoplay=1', provider:'YouTube' },
-    { name:'Foro TV', logo:'', category:'México', country:'MX', url:'https://www.youtube.com/embed/live_stream?channel=UCpjkQFR6E1cBoAuFMwnNIJw&autoplay=1', provider:'YouTube' },
-    { name:'Azteca Noticias', logo:'', category:'México', country:'MX', url:'https://www.youtube.com/embed/live_stream?channel=UCUP6qv-_EIL0hwTsJaKYnvw&autoplay=1', provider:'YouTube' },
-    { name:'TN Todo Noticias', logo:'', category:'Argentina', country:'AR', url:'https://www.youtube.com/embed/live_stream?channel=UCj6PcyLvpnIRT_2W_mwa9Aw&autoplay=1', provider:'YouTube' },
-    { name:'ESPN Fans', logo:'', category:'Deportes', country:'Intl', url:'https://www.youtube.com/embed/live_stream?channel=UCnazwCR4RYUbSCbnZ9xeTAg&autoplay=1', provider:'YouTube' },
-    { name:'TUDN México', logo:'', category:'Deportes', country:'MX', url:'https://www.youtube.com/embed/live_stream?channel=UC1aKBoCLU0RZaCVzjWox_GA&autoplay=1', provider:'YouTube' },
-    { name:'Cartoon Network LA', logo:'', category:'Infantil', country:'Intl', url:'https://www.youtube.com/embed/live_stream?channel=UCvYMjV5UjgyCg9kLozcNkBA&autoplay=1', provider:'YouTube' },
-    { name:'Nickelodeon LA', logo:'', category:'Infantil', country:'Intl', url:'https://www.youtube.com/embed/live_stream?channel=UCNeq3Obf4zOv5rhORI8Vz5g&autoplay=1', provider:'YouTube' },
-    { name:'Discovery Kids LA', logo:'', category:'Infantil', country:'Intl', url:'https://www.youtube.com/embed/live_stream?channel=UC9PIfDp0yx6QRTMVMltMZyA&autoplay=1', provider:'YouTube' },
-  ]);
-}
-
-var svSearchResults = [];
-async function searchChannelsLive(query) {
-  if (!query) { svSearchResults = []; renderList(); return; }
-  try {
-    var res = await fetch(API_BASE + '?search=' + encodeURIComponent(query) + '&page=1&limit=30');
-    var data = await res.json();
-    if (data.success && data.results) {
-      svSearchResults = data.results.map(function(ch) {
-        var url = ch.url || '';
-        if (url.startsWith('/')) url = 'https://streamvault-vj0p.onrender.com' + url;
-        return { name: ch.name, logo: ch.logo, category: ch.category, country: ch.country, url: url };
-      })
-      .filter(function(ch) {
-        return ch.url && !ch.url.startsWith('http://');
-      });
-    }
-  } catch(e) { svSearchResults = []; }
-  activeIdx = -1;
-  renderList();
-}
-
-function init() {
-  showSkeletons();
-  stopPlayer();
-  placeholder.style.display = 'flex';
-  document.getElementById('countText').textContent = 'Cargando canales...';
-
-  // Cargar canales curados (YouTube 24/7 + TVLibre) — los que sí funcionan
-  Promise.all([
-    loadCuratedChannels(),
-    loadTVLibreChannels()
-  ]).then(function(results) {
-    var curated = results[0] || [];
-    var tvlibreCh = results[1] || [];
-
-    var seen = new Set();
-    allChannels = [];
-    [curated, tvlibreCh].forEach(function(list) {
-      list.forEach(function(ch) {
-        var key = ch.name.toLowerCase().trim();
-        if (!key || seen.has(key)) return;
-        seen.add(key);
-        allChannels.push(ch);
-      });
-    });
-
-    document.getElementById('countText').textContent = allChannels.length + ' canales en vivo';
-    buildTabs();
-    renderList();
-  }).catch(function(err) {
-    document.getElementById('countText').textContent = 'Error al cargar';
-    document.getElementById('channelList').innerHTML =
-      '<div class="error-msg">No se pudieron cargar los canales.<br><small style="color:#444">' + err.message + '</small><br><button class="retry-btn" onclick="init()">Reintentar</button></div>';
-  });
-}
-
-// Cargar canales de Animux directo de Firestore
-async function loadAnimuxFirestore() {
-  var API_KEY = 'AIzaSyC0ROz4tvDU9sg60cfcXV6mCo3vPjGLfPg';
-  var PROJECT = 'barbers-9b523';
-  var BASE = 'https://firestore.googleapis.com/v1/projects/' + PROJECT + '/databases/(default)/documents/channels';
-  var channels = [];
-  var pageToken = '';
-  var seen = new Set();
-
-  for (var page = 0; page < 10; page++) {
-    var url = BASE + '?key=' + API_KEY + '&pageSize=200';
-    if (pageToken) url += '&pageToken=' + encodeURIComponent(pageToken);
-    try {
-      var res = await fetch(url);
-      var data = await res.json();
-      var docs = data.documents || [];
-      if (!docs.length) break;
-
-      for (var i = 0; i < docs.length; i++) {
-        var fields = docs[i].fields || {};
-        var name = (fields.name && fields.name.stringValue) || '';
-        var chUrl = (fields.url && fields.url.stringValue) || '';
-        var category = (fields.category && fields.category.stringValue) || 'TV';
-        var logo = (fields.logo && fields.logo.stringValue) || '';
-
-        if (!name || !chUrl) continue;
-        var key = name.toLowerCase().trim();
-        if (seen.has(key)) continue;
-        seen.add(key);
-
-        channels.push({
-          name: name,
-          logo: logo,
-          category: category,
-          country: '',
-          url: chUrl,
-          provider: 'Animux'
-        });
-      }
-
-      pageToken = data.nextPageToken || '';
-      if (!pageToken) break;
-    } catch(e) { break; }
-  }
-
-  return channels;
-}
+function init(){ showSkeletons(); showState('idle');
+  var res={sv:[],ftv:[],yt:[]}; var done=0,total=3;
+  function onDone(){ done++; var merged=merge([res.sv,res.yt,res.ftv]);
+    if(merged.length){ allChannels=merged; buildTabs(); buildTicker(); renderBar(); }
+    if(done===total&&!allChannels.length){ elBar.innerHTML='<div class="bar-msg">No se pudieron cargar canales <button onclick="init()" style="margin-left:8px;background:var(--red);color:#fff;border:none;font-family:inherit;font-size:11px;padding:5px 12px;border-radius:5px;cursor:pointer">Reintentar</button></div>'; }}
+  loadSV().then(function(c){res.sv=c;}).catch(function(e){console.warn('SV:',e);}).then(onDone);
+  loadYT().then(function(c){res.yt=c;}).then(onDone);
+  loadFTV().then(function(c){res.ftv=c;}).catch(function(e){console.warn('FTV:',e);}).then(onDone);}
 
 init();
 </script>
