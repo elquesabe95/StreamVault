@@ -82,6 +82,13 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Always trigger background sync to populate DB (non-blocking)
+    if (page === 1 && !search) {
+      if (iptv && (iptv as any).syncChannelsGlobal) {
+        (iptv as any).syncChannelsGlobal().catch((e: any) => console.error("Sync error:", e));
+      }
+    }
+
     if (page === 1 && !search && results.length === 0) {
       results = staticChannels.map(c => ({ ...c, provider: "Premium" }));
       
@@ -100,10 +107,6 @@ export async function GET(req: NextRequest) {
           results.push(...sample);
         }
       } catch (e) {}
-
-      if (iptv && (iptv as any).syncChannelsGlobal) {
-        (iptv as any).syncChannelsGlobal().catch((e: any) => console.error("Sync error:", e));
-      }
     }
 
     return NextResponse.json({
