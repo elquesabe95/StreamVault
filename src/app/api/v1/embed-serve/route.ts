@@ -16,8 +16,7 @@ function getPlaybackType(url: string): PlaybackType {
 
 async function resolveDeep(url: string): Promise<string[]> {
   const first = await resolveStream(url).catch(() => url);
-  const urls = Array.isArray(first) ? first : [first];
-  return urls.filter(u => u !== url || urls.length === 1).slice(0, 10);
+  return Array.isArray(first) ? first.slice(0, 10) : [first];
 }
 
 export async function GET(req: NextRequest) {
