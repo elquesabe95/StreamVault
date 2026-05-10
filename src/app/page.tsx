@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
-
 export default function Home() {
   const BASE = "https://streamvault-vj0p.onrender.com";
 
@@ -48,9 +46,7 @@ export default function Home() {
         .section-title{font-size:2rem;font-weight:800;letter-spacing:-1px;margin-bottom:40px}
         .endpoints{display:flex;flex-direction:column;gap:18px}
         .ep-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s,box-shadow .2s;animation:fadeUp .7s both}
-        .ep-card:nth-child(2){animation-delay:.1s}
-        .ep-card:nth-child(3){animation-delay:.2s}
-        .ep-card:nth-child(4){animation-delay:.3s}
+        .ep-card:nth-child(2){animation-delay:.1s}.ep-card:nth-child(3){animation-delay:.2s}.ep-card:nth-child(4){animation-delay:.3s}
         .ep-card:hover{border-color:rgba(0,229,255,.3);box-shadow:0 0 32px rgba(0,229,255,.06)}
         .ep-header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:18px 22px}
         .method{font-family:monospace;font-size:.7rem;font-weight:700;padding:4px 10px;border-radius:5px;letter-spacing:.08em}
@@ -78,7 +74,7 @@ export default function Home() {
         .copy-btn{font-family:monospace;font-size:.65rem;color:var(--muted);background:none;border:1px solid var(--border);border-radius:5px;padding:3px 9px;cursor:pointer;transition:all .2s}
         .copy-btn:hover{color:var(--accent);border-color:var(--accent)}
         .copy-btn.copied{color:var(--green);border-color:var(--green)}
-        pre{padding:16px 18px;overflow-x:auto;line-height:1.65;font-family:monospace;color:#8da8c8}
+        pre{padding:16px 18px;overflow-x:auto;line-height:1.65;font-family:'Space Mono',Courier,monospace;color:#8da8c8;margin:0;white-space:pre-wrap}
         .kw{color:#a97bf7}.str{color:var(--green)}.cm{color:#3d5268;font-style:italic}.fn{color:var(--accent)}.num{color:var(--orange)}
         .demo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
         .demo-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;animation:fadeUp .7s both;transition:border-color .25s,box-shadow .25s,transform .25s}
@@ -163,129 +159,78 @@ export default function Home() {
           <div className="section-label">// Referencia</div>
           <div className="section-title">Endpoints del Player</div>
           <div className="endpoints">
+
             {/* MOVIE */}
-            <div className="ep-card">
-              <div className="ep-header">
-                <span className="method get">GET</span>
-                <span className="ep-path">/embed/movie/<em>{'{tmdb_id}'}</em></span>
-                <span className="ep-type-badge movie">🎬 Movie</span>
-              </div>
-              <div className="ep-desc">
-                Carga el player embed para una película usando su ID de TMDB. Contenido en español latino.
-              </div>
-              <div className="ep-body">
-                <div className="params-title">Path Parameters</div>
-                <table className="params-table">
-                  <tbody>
-                    <tr><th>Parámetro</th><th>Tipo</th><th>Req.</th><th>Descripción</th></tr>
-                    <tr><td><span className="param-name">tmdb_id</span></td><td><span className="param-type">integer</span></td><td><span className="param-req req">required</span></td><td>ID numérico de la película en The Movie Database (TMDB)</td></tr>
-                  </tbody>
-                </table>
-                <div className="code-block">
-                  <div className="code-top"><span className="code-lang">EJEMPLO DE USO</span><button className="copy-btn" id="copy-movie" onClick="navigator.clipboard.writeText('<iframe src=\\'https://streamvault-vj0p.onrender.com/embed/movie/272\\' width=\\'100%\\' height=\\'500\\' frameborder=\\'0\\' allowfullscreen allow=\\'autoplay; encrypted-media; fullscreen\\'></iframe>').then(()=>{this.textContent='✓ Copiado';this.classList.add('copied');setTimeout(()=>{this.textContent='Copiar';this.classList.remove('copied')},2000)})">Copiar</button></div>
-                  <pre id="code-movie"><span className="cm">&lt;!-- Embed de película: TMDB ID 272 --&gt;</span>
-            <span className="kw">&lt;iframe</span>
-              <span className="fn">src</span>=<span className="str">"https://streamvault-vj0p.onrender.com/embed/movie/272"</span>
-              <span className="fn">width</span>=<span className="str">"100%"</span>
-              <span className="fn">height</span>=<span className="str">"500"</span>
-              <span className="fn">frameborder</span>=<span className="str">"0"</span>
-              <span className="fn">allowfullscreen</span>
-              <span className="fn">allow</span>=<span className="str">"autoplay; encrypted-media; fullscreen"</span>
-            <span className="kw">&gt;&lt;/iframe&gt;</span></pre>
-                </div>
-              </div>
-            </div>
+            <EndpointCard
+              method="GET"
+              path="/embed/movie/{tmdb_id}"
+              badge="🎬 Movie"
+              badgeClass="movie"
+              desc="Carga el player embed para una película usando su ID de TMDB. Contenido en español latino."
+              params={[{name:"tmdb_id",type:"integer",req:true,desc:"ID numérico de la película en TMDB"}]}
+              code={`<!-- Embed de película: TMDB ID 272 -->
+&lt;iframe
+  src="${BASE}/embed/movie/272"
+  width="100%"
+  height="500"
+  frameborder="0"
+  allowfullscreen
+  allow="autoplay; encrypted-media; fullscreen"
+&gt;&lt;/iframe&gt;`}
+            />
 
             {/* SERIES */}
-            <div className="ep-card">
-              <div className="ep-header">
-                <span className="method get">GET</span>
-                <span className="ep-path">/embed/tv/<em>{'{tmdb_id}'}</em>?season=<em>{'{s}'}</em>&episode=<em>{'{e}'}</em></span>
-                <span className="ep-type-badge series">📺 Series</span>
-              </div>
-              <div className="ep-desc">
-                Carga el player embed para un episodio de serie. Requiere el ID de TMDB de la serie, número de temporada y episodio.
-              </div>
-              <div className="ep-body">
-                <div className="params-title">Query Parameters</div>
-                <table className="params-table">
-                  <tbody>
-                    <tr><th>Parámetro</th><th>Tipo</th><th>Req.</th><th>Descripción</th></tr>
-                    <tr><td><span className="param-name">tmdb_id</span></td><td><span className="param-type">integer</span></td><td><span className="param-req req">required</span></td><td>ID de la serie en TMDB</td></tr>
-                    <tr><td><span className="param-name">season</span></td><td><span className="param-type">integer</span></td><td><span className="param-req req">required</span></td><td>Número de temporada (empieza en 1)</td></tr>
-                    <tr><td><span className="param-name">episode</span></td><td><span className="param-type">integer</span></td><td><span className="param-req req">required</span></td><td>Número de episodio dentro de la temporada</td></tr>
-                  </tbody>
-                </table>
-                <div className="code-block">
-                  <div className="code-top"><span className="code-lang">EJEMPLO DE USO</span><button className="copy-btn" onClick="navigator.clipboard.writeText('<iframe src=\\'https://streamvault-vj0p.onrender.com/embed/tv/1399?season=1&episode=1\\' width=\\'100%\\' height=\\'500\\' frameborder=\\'0\\' allowfullscreen allow=\\'autoplay; encrypted-media; fullscreen\\'></iframe>').then(()=>{this.textContent='✓ Copiado';this.classList.add('copied');setTimeout(()=>{this.textContent='Copiar';this.classList.remove('copied')},2000)})">Copiar</button></div>
-                  <pre id="code-tv"><span className="cm">&lt;!-- Serie: TMDB 1399 | T1 E1 --&gt;</span>
-            <span className="kw">&lt;iframe</span>
-              <span className="fn">src</span>=<span className="str">"https://streamvault-vj0p.onrender.com/embed/tv/1399?season=1&episode=1"</span>
-              <span className="fn">width</span>=<span className="str">"100%"</span>
-              <span className="fn">height</span>=<span className="str">"500"</span>
-              <span className="fn">frameborder</span>=<span className="str">"0"</span>
-              <span className="fn">allowfullscreen</span>
-              <span className="fn">allow</span>=<span className="str">"autoplay; encrypted-media; fullscreen"</span>
-            <span className="kw">&gt;&lt;/iframe&gt;</span></pre>
-                </div>
-              </div>
-            </div>
+            <EndpointCard
+              method="GET"
+              path="/embed/tv/{tmdb_id}?season={s}&episode={e}"
+              badge="📺 Series"
+              badgeClass="series"
+              desc="Carga el player embed para un episodio de serie."
+              params={[
+                {name:"tmdb_id",type:"integer",req:true,desc:"ID de la serie en TMDB"},
+                {name:"season",type:"integer",req:true,desc:"Número de temporada (empieza en 1)"},
+                {name:"episode",type:"integer",req:true,desc:"Número de episodio"},
+              ]}
+              code={`<!-- Serie: TMDB 1399 | T1 E1 -->
+&lt;iframe
+  src="${BASE}/embed/tv/1399?season=1&episode=1"
+  width="100%"
+  height="500"
+  frameborder="0"
+  allowfullscreen
+  allow="autoplay; encrypted-media; fullscreen"
+&gt;&lt;/iframe&gt;`}
+            />
 
             {/* TV CHANNELS */}
-            <div className="ep-card">
-              <div className="ep-header">
-                <span className="method get">GET</span>
-                <span className="ep-path">/api/v1/tv/all?page=1&limit=200</span>
-                <span className="ep-type-badge tv">📡 TV Channels</span>
-              </div>
-              <div className="ep-desc">
-                Lista todos los canales de TV disponibles. Devuelve un array JSON con nombre, logo, categoría, país y URL del stream de cada canal.
-              </div>
-              <div className="ep-body">
-                <div className="params-title">Query Parameters</div>
-                <table className="params-table">
-                  <tbody>
-                    <tr><th>Parámetro</th><th>Tipo</th><th>Req.</th><th>Descripción</th></tr>
-                    <tr><td><span className="param-name">page</span></td><td><span className="param-type">integer</span></td><td><span className="param-req opt">optional</span></td><td>Número de página (default 1)</td></tr>
-                    <tr><td><span className="param-name">limit</span></td><td><span className="param-type">integer</span></td><td><span className="param-req opt">optional</span></td><td>Resultados por página (default 20, max 200)</td></tr>
-                  </tbody>
-                </table>
-                <div className="code-block">
-                  <div className="code-top"><span className="code-lang">EJEMPLO DE USO</span><button className="copy-btn" onClick="navigator.clipboard.writeText('fetch(\"https://streamvault-vj0p.onrender.com/api/v1/tv/all?page=1&limit=200\")\n  .then(r => r.json())\n  .then(data => console.log(data.results));\n// [{name, logo, country, category, url}, ...]').then(()=>{this.textContent='✓ Copiado';this.classList.add('copied');setTimeout(()=>{this.textContent='Copiar';this.classList.remove('copied')},2000)})">Copiar</button></div>
-                  <pre id="code-tvall"><span className="kw">fetch</span>(<span className="str">"https://streamvault-vj0p.onrender.com/api/v1/tv/all?page=1&limit=200"</span>)
-              .<span className="fn">then</span>(r => r.<span className="fn">json</span>())
-              .<span className="fn">then</span>(data => console.<span className="fn">log</span>(data.results));
-            <span className="cm">// [{name, logo, country, category, url}, ...]</span></pre>
-                </div>
-              </div>
-            </div>
+            <EndpointCard
+              method="GET"
+              path="/api/v1/tv/all?page=1&limit=200"
+              badge="📡 TV Channels"
+              badgeClass="tv"
+              desc="Lista todos los canales de TV disponibles. Devuelve array JSON con nombre, logo, categoría, país y URL del stream."
+              params={[
+                {name:"page",type:"integer",req:false,desc:"Número de página (default 1)"},
+                {name:"limit",type:"integer",req:false,desc:"Resultados por página (default 20, max 200)"},
+              ]}
+              code={`fetch("${BASE}/api/v1/tv/all?page=1&limit=200")
+  .then(r => r.json())
+  .then(data => console.log(data.results));
+// [{name, logo, country, category, url}, ...]`}
+            />
 
             {/* SEARCH TV */}
-            <div className="ep-card">
-              <div className="ep-header">
-                <span className="method get">GET</span>
-                <span className="ep-path">/api/v1/tv/all?search=<em>{'{query}'}</em></span>
-                <span className="ep-type-badge tv">🔍 Search TV</span>
-              </div>
-              <div className="ep-desc">
-                Busca canales de TV en vivo consultando múltiples fuentes (TeleOnline + Animux) en tiempo real.
-              </div>
-              <div className="ep-body">
-                <div className="params-title">Query Parameters</div>
-                <table className="params-table">
-                  <tbody>
-                    <tr><th>Parámetro</th><th>Tipo</th><th>Req.</th><th>Descripción</th></tr>
-                    <tr><td><span className="param-name">search</span></td><td><span className="param-type">string</span></td><td><span className="param-req req">required</span></td><td>Término de búsqueda (ej: caracol, espn, rcn)</td></tr>
-                  </tbody>
-                </table>
-                <div className="code-block">
-                  <div className="code-top"><span className="code-lang">EJEMPLO DE USO</span><button className="copy-btn" onClick="navigator.clipboard.writeText('fetch(\"https://streamvault-vj0p.onrender.com/api/v1/tv/all?search=caracol\")\n  .then(r => r.json())\n  .then(data => console.log(data.results));').then(()=>{this.textContent='✓ Copiado';this.classList.add('copied');setTimeout(()=>{this.textContent='Copiar';this.classList.remove('copied')},2000)})">Copiar</button></div>
-                  <pre id="code-tvsearch"><span className="kw">fetch</span>(<span className="str">"https://streamvault-vj0p.onrender.com/api/v1/tv/all?search=caracol"</span>)
-              .<span className="fn">then</span>(r => r.<span className="fn">json</span>())
-              .<span className="fn">then</span>(data => console.<span className="fn">log</span>(data.results));</pre>
-                </div>
-              </div>
-            </div>
+            <EndpointCard
+              method="GET"
+              path="/api/v1/tv/all?search={query}"
+              badge="🔍 Search TV"
+              badgeClass="tv"
+              desc="Busca canales de TV en vivo consultando múltiples fuentes (TeleOnline + Animux) en tiempo real."
+              params={[{name:"search",type:"string",req:true,desc:"Término de búsqueda (ej: caracol, espn, rcn)"}]}
+              code={`fetch("${BASE}/api/v1/tv/all?search=caracol")
+  .then(r => r.json())
+  .then(data => console.log(data.results));`}
+            />
           </div>
         </section>
 
@@ -304,8 +249,8 @@ export default function Home() {
                 : `${BASE}/embed/tv/${item.id}?season=${item.season}&episode=${item.episode}`;
               return (
                 <div className="demo-card" key={i}>
-                  <div className="demo-thumb" onClick={`window.open('${demoUrl}','_blank')`}>
-                    <img className="poster" src={item.poster} alt={item.title} onError={`this.onerror=null;this.style.opacity='.3'`} />
+                  <div className="demo-thumb" style={{ cursor: "pointer" }} onClick={() => window.open(demoUrl, "_blank")}>
+                    <img className="poster" src={item.poster} alt={item.title} onError={(e) => { (e.target as HTMLImageElement).style.opacity = ".3"; }} />
                     <div className="overlay" />
                     <div className="play-btn">
                       <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" /></svg>
@@ -357,8 +302,8 @@ export default function Home() {
               </div>
             </div>
             <div className="code-block" style={{marginTop:0}}>
-              <div className="code-top"><span className="code-lang">URL GENERADA</span><button className="copy-btn" id="gen-copy" onClick={`navigator.clipboard.writeText(document.getElementById('gen-output').textContent).then(()=>{this.textContent='✓ Copiado';this.classList.add('copied');setTimeout(()=>{this.textContent='Copiar';this.classList.remove('copied')},2000)})`}>Copiar</button></div>
-              <pre id="gen-output" style={{color:"var(--accent)"}}>https://streamvault-vj0p.onrender.com/embed/movie/272</pre>
+              <div className="code-top"><span className="code-lang">URL GENERADA</span><button className="copy-btn" id="gen-copy" onClick={() => { const el = document.getElementById("gen-output"); if (el) navigator.clipboard.writeText(el.textContent || "").then(() => { const b = document.getElementById("gen-copy"); if (b) { b.textContent = "✓ Copiado"; b.classList.add("copied"); setTimeout(() => { b.textContent = "Copiar"; b.classList.remove("copied"); }, 2000); } }); }}>Copiar</button></div>
+              <pre id="gen-output" style={{color:"var(--accent)"}}>{BASE}/embed/movie/272</pre>
             </div>
             <div style={{display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}}>
               <a id="gen-link" href={`${BASE}/embed/movie/272`} target="_blank" className="try-btn">▶ Probar aquí</a>
@@ -372,8 +317,8 @@ export default function Home() {
           <div className="section-title">Formatos de Embed</div>
           <div className="schema-box">
             <div className="schema-row header"><div>Tipo</div><div>Patrón URL</div><div>Ejemplo</div></div>
-            <div className="schema-row"><div className="field-name">🎬 Película</div><div className="field-type">/movie/{'{id}'}</div><div className="field-desc">streamvault-vj0p.onrender.com/embed/movie/272</div></div>
-            <div className="schema-row"><div className="field-name">📺 Serie</div><div className="field-type">/tv/{'{id}'}?season=&episode=</div><div className="field-desc">streamvault-vj0p.onrender.com/embed/tv/1399?season=1&episode=1</div></div>
+            <div className="schema-row"><div className="field-name">🎬 Película</div><div className="field-type">/movie/{"{id}"}</div><div className="field-desc">streamvault-vj0p.onrender.com/embed/movie/272</div></div>
+            <div className="schema-row"><div className="field-name">📺 Serie</div><div className="field-type">/tv/{"{id}"}?season=&episode=</div><div className="field-desc">streamvault-vj0p.onrender.com/embed/tv/1399?season=1&episode=1</div></div>
             <div className="schema-row"><div className="field-name">📡 Canales TV</div><div className="field-type">/api/v1/tv/all</div><div className="field-desc">streamvault-vj0p.onrender.com/api/v1/tv/all?page=1&limit=20</div></div>
             <div className="schema-row"><div className="field-name">🔍 Buscar TV</div><div className="field-type">/api/v1/tv/all?search=</div><div className="field-desc">streamvault-vj0p.onrender.com/api/v1/tv/all?search=espn</div></div>
           </div>
@@ -407,5 +352,47 @@ export default function Home() {
         })();
       `}} />
     </>
+  );
+}
+
+function EndpointCard({ method, path, badge, badgeClass, desc, params, code }: {
+  method: string; path: string; badge: string; badgeClass: string;
+  desc: string; params: { name: string; type: string; req: boolean; desc: string }[];
+  code: string;
+}) {
+  return (
+    <div className="ep-card">
+      <div className="ep-header">
+        <span className="method get">{method}</span>
+        <span className="ep-path">{path.split(/\{([^}]+)\}/g).map((part, i) =>
+          i % 2 === 1 ? <em key={i}>{`{${part}}`}</em> : part
+        )}</span>
+        <span className={`ep-type-badge ${badgeClass}`}>{badge}</span>
+      </div>
+      <div className="ep-desc">{desc}</div>
+      <div className="ep-body">
+        <div className="params-title">Parameters</div>
+        <table className="params-table">
+          <tbody>
+            <tr><th>Parámetro</th><th>Tipo</th><th>Req.</th><th>Descripción</th></tr>
+            {params.map(p => (
+              <tr key={p.name}>
+                <td><span className="param-name">{p.name}</span></td>
+                <td><span className="param-type">{p.type}</span></td>
+                <td><span className={`param-req ${p.req ? "req" : "opt"}`}>{p.req ? "required" : "optional"}</span></td>
+                <td>{p.desc}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="code-block">
+          <div className="code-top">
+            <span className="code-lang">EJEMPLO DE USO</span>
+            <button className="copy-btn" onClick={() => navigator.clipboard.writeText(code.replace(/<[^>]*>/g, ""))}>Copiar</button>
+          </div>
+          <pre dangerouslySetInnerHTML={{ __html: code }} />
+        </div>
+      </div>
+    </div>
   );
 }
