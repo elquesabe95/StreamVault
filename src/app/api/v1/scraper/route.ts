@@ -166,24 +166,7 @@ export async function GET(req: NextRequest) {
           const sources = await getPelispediaSources(targetUrl);
           return sources.map(source => ({ ...source, lang: "Latino" }));
         }},
-        { name: "Cuevana", key: "cuevana", fn: async () => {
-          const res = await searchCuevana(query);
-          const match = findExactMatch(res);
-          if (!match) return [];
-          let targetUrl = match.url;
-          if (match.url.includes("/serie/")) {
-          if (!match) return [];
-          return await getAnimeFLVServers(match.url, episode);
-        }},
-        { name: "AnimeAV1", key: "animeav1", fn: async () => {
-          const res = await searchAnimeAV1(query);
-          const match = findExactMatch(res);
-          if (!match) return [];
-          const eps = await getAnimeAV1Episodes(match.url);
-          const ep = eps.find(e => e.number === episode);
-          if (!ep) return [];
-          return await getAnimeAV1Servers(ep.url);
-        }}
+
       );
     } else {
       providers.push(

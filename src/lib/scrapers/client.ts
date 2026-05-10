@@ -38,7 +38,7 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
 
   // Try Native Fetch
   try {
-    const response = await fetch(url, {
+    const response = await fetch(targetUrl, {
       headers,
       signal: AbortSignal.timeout(10000)
     });
@@ -64,7 +64,7 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
       curlArgs.push("-H", `${k}: ${v}`);
     });
     
-    curlArgs.push(url);
+    curlArgs.push(targetUrl);
     
     const curlExecutable = process.platform === "win32" ? "curl.exe" : "curl";
     const result = spawnSync(curlExecutable, curlArgs, { 
