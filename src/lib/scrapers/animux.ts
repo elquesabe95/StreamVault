@@ -182,7 +182,7 @@ export async function getAnimuxStream(channelUrl: string): Promise<string> {
   if (channelUrl.includes(".m3u8")) return channelUrl;
   
   console.log(`[Animux] Resolving stream for: ${channelUrl}`);
-  const html = await readPage(channelUrl);
+  const html = await readPage(channelUrl, {}, true);
   
   // Look for the stream URL in the HTML or scripts
   // Patterns: 

@@ -96,7 +96,7 @@ export async function readJson<T = any>(url: string): Promise<T | null> {
       headers["Origin"] = "https://animux.site";
     }
 
-    const text = await readPage(url, headers);
+    const text = await readPage(url, headers, true);
     if (!text) return null;
 
     const isHtml = text.trim().toLowerCase().startsWith("<!doctype") || text.trim().toLowerCase().startsWith("<html");

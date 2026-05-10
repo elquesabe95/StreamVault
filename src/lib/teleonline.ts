@@ -155,7 +155,7 @@ export async function getCountries(): Promise<CountryInfo[]> {
   }
 
   if (countries.size === 0) {
-    const html = await readPage(`${BASE_URL}/canales/espana/`);
+    const html = await readPage(`${BASE_URL}/canales/espana/`, {}, true);
     const countryRegex = /href=["']https:\/\/teleonline\.org\/canales\/([^/]+)\/["'][^>]*>([\s\S]*?)<\/a>/g;
 
     let match;
@@ -232,7 +232,7 @@ export async function getChannelsByCountry(countrySlug: string): Promise<Channel
     let successUrl = "";
     for (const url of urlPatterns) {
       console.log(`[TeleOnline] Trying pattern: ${url}`);
-      const html = await readPage(url);
+      const html = await readPage(url, {}, true);
       if (html && html.length > 500) {
         extractChannelsFromHtml(html, countrySlug, allChannels, seen);
         if (allChannels.length > 0) {
@@ -250,7 +250,7 @@ export async function getChannelsByCountry(countrySlug: string): Promise<Channel
     // 2. Detect total pages from the first successful page
     // Note: We already have the first page HTML, but let's re-read if needed or reuse
     // For simplicity, I'll just reuse the one I got if I can, but I'll re-read to get the full HTML again for page detection
-    const firstPageHtml = await readPage(successUrl);
+    const firstPageHtml = await readPage(successUrl, {}, true);
     const pageRegex = /href="https:\/\/teleonline\.org\/canales\/[^/]+\/page\/(\d+)\/"/g;
     let maxPage = 1;
     let pageMatch;
@@ -265,7 +265,7 @@ export async function getChannelsByCountry(countrySlug: string): Promise<Channel
     const pageLimit = Math.min(maxPage, 20); // Safety limit
     for (let p = 2; p <= pageLimit; p++) {
       const pageUrl = `${successUrl}page/${p}/`;
-      const pageHtml = await readPage(pageUrl);
+      const pageHtml = await readPage(pageUrl, {}, true);
       if (pageHtml) {
         extractChannelsFromHtml(pageHtml, countrySlug, allChannels, seen);
       }
@@ -366,7 +366,7 @@ export async function getChannelPage(channelSlug: string): Promise<{
   stream_urls: string[];
   logo?: string;
 }> {
-  const html = await readPage(`${BASE_URL}/canal/${channelSlug}/`);
+  const html = await readPage(`${BASE_URL}/canal/${channelSlug}/`, {}, true);
 
   // Extract post_id
   const postIdMatch = /chat_id["\s:=]+(\d+)/.exec(html) || /data-post-id="(\d+)"/.exec(html);
