@@ -41,11 +41,13 @@ function isCloudflareChallenge(html: string): boolean {
     (html.includes("Just a moment") && html.length < 2000);
 }
 
+// Primary proxy: your Cloudflare Worker (deploy worker-proxy.js with `npx wrangler deploy`)
+// Free: 100k req/day. If not set, falls back to direct access.
+const WORKER_PROXY = process.env.PROXY_WORKER_URL || "";
+
 const PROXIES = [
-  "https://api.allorigins.win/raw?url=",
-  "https://api.codetabs.com/v1/proxy?quest=",
-  "https://corsproxy.io/?",
-];
+  WORKER_PROXY,  // Your Cloudflare Worker — fastest, most reliable
+].filter(Boolean);
 
 export async function readPage(url: string, customHeaders?: Record<string, string>, useProxy: boolean = false): Promise<string> {
   const headers = buildHeaders(customHeaders);
@@ -69,7 +71,9 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   // 3. Proxy fallback — try multiple proxies
   if (useProxy) {
     for (const proxy of PROXIES) {
-      const proxyUrl = proxy + encodeURIComponent(url);
+      // Support both ?url= format (Cloudflare Worker) and direct append
+      const sep = proxy.includes("workers.dev") ? "?url=" : "";
+      const proxyUrl = proxy + sep + encodeURIComponent(url);
       html = await tryFetch(proxyUrl, headers, 10000);
       if (html && !isCloudflareChallenge(html) && html.length > 500) {
         console.log(`[readPage] Proxy OK: ${proxy.substring(0, 30)} (${html.length}b)`);
