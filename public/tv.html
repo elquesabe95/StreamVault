@@ -474,23 +474,15 @@ function init() {
       var ch = data.results || data.channels || data.data || (Array.isArray(data) ? data : []);
       if (!ch.length) throw new Error('La API no devolvió canales');
 
-      // Filtrar canales con URLs válidas
+      // Filtrar solo canales del scraper (Premium) - son los que funcionan
       allChannels = ch.filter(function(c) {
         var url = c.url || '';
-        // Excluir URLs HTTP (bloqueadas en sitios HTTPS)
-        if (url.startsWith('http://')) return false;
-        // Excluir canales sin URL
-        if (!url) return false;
-        return true;
-      });
-
-      // Priorizar canales del scraper (más confiables)
-      allChannels.sort(function(a, b) {
-        var aIsScraper = isScraperURL(a.url || '');
-        var bIsScraper = isScraperURL(b.url || '');
-        if (aIsScraper && !bIsScraper) return -1;
-        if (!aIsScraper && bIsScraper) return 1;
-        return 0;
+        // Solo incluir canales del scraper (Premium/TeleOnline/Animux)
+        if (url.startsWith('/api/v1/scraper') || url.includes('streamvault-vj0p.onrender.com/api/v1/scraper')) return true;
+        // Incluir YouTube embeds
+        if (url.includes('youtube.com/embed')) return true;
+        // Excluir todo lo demás (m3u8 directos, HTTP, etc.)
+        return false;
       });
       document.getElementById('countText').textContent = allChannels.length + ' canales en vivo';
       buildTabs();
