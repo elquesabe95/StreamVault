@@ -68,10 +68,10 @@ export async function GET(req: NextRequest) {
         };
 
         const [animuxChannels, ...countryResults] = await Promise.allSettled([
-          withTimeout(getAnimuxChannels().catch(() => []), 8000),
-          withTimeout(getChannelsByCountry("colombia").catch(() => []), 8000),
-          withTimeout(getChannelsByCountry("mexico").catch(() => []), 8000),
-          withTimeout(getChannelsByCountry("argentina").catch(() => []), 8000),
+          withTimeout(getAnimuxChannels().catch(() => []), 15000),
+          withTimeout(getChannelsByCountry("colombia").catch(() => []), 15000),
+          withTimeout(getChannelsByCountry("mexico").catch(() => []), 15000),
+          withTimeout(getChannelsByCountry("argentina").catch(() => []), 15000),
         ]);
 
         if (animuxChannels.status === "fulfilled" && Array.isArray(animuxChannels.value)) {
