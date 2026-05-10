@@ -465,40 +465,91 @@ function init() {
   placeholder.style.display = 'flex';
   document.getElementById('countText').textContent = 'Cargando canales...';
 
-  fetch(API_BASE + '?page=1&limit=200')
-    .then(function(res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    })
-    .then(function(data) {
-      var ch = data.results || data.channels || data.data || (Array.isArray(data) ? data : []);
-      if (!ch.length) throw new Error('La API no devolvió canales');
+  // Cargar Animux directo de Firestore + StreamVault Premium
+  Promise.all([
+    loadAnimuxFirestore(),
+    fetch(API_BASE + '?page=1&limit=200').then(function(r){ return r.json(); })
+  ]).then(function(results) {
+    var animuxCh = results[0] || [];
+    var svData = results[1] || {};
 
-      // Filtrar solo canales del scraper (Premium) - son los que funcionan
-      allChannels = ch.filter(function(c) {
-        var url = c.url || '';
-        // Convertir URLs relativas a absolutas
-        if (url.startsWith('/')) c.url = 'https://streamvault-vj0p.onrender.com' + url;
-        url = c.url;
-        // Solo incluir canales del scraper (Premium/TeleOnline/Animux)
-        if (url.includes('/api/v1/scraper')) return true;
-        // Incluir YouTube embeds
-        if (url.includes('youtube.com/embed')) return true;
-        return false;
-      });
-      document.getElementById('countText').textContent = allChannels.length + ' canales en vivo';
-      buildTabs();
-      renderList();
-    })
-    .catch(function(err) {
-      document.getElementById('countText').textContent = 'Error al cargar';
-      document.getElementById('channelList').innerHTML =
-        '<div class="error-msg">'
-        + 'No se pudieron cargar los canales.<br>'
-        + '<small style="color:#444">' + err.message + '</small><br>'
-        + '<button class="retry-btn" onclick="init()">Reintentar</button>'
-        + '</div>';
+    // Procesar canales del scraper de StreamVault
+    var svCh = (svData.results || []).filter(function(c) {
+      return c.provider === 'Premium' || c.provider === 'Animux';
+    }).map(function(c) {
+      var url = c.url || '';
+      if (url.startsWith('/')) url = 'https://streamvault-vj0p.onrender.com' + url;
+      return { name: c.name, logo: c.logo, category: c.category, country: c.country, url: url, provider: c.provider };
     });
+
+    // Unir y deduplicar
+    var seen = new Set();
+    allChannels = [];
+    [animuxCh, svCh].forEach(function(list) {
+      list.forEach(function(ch) {
+        var key = ch.name.toLowerCase().trim();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        allChannels.push(ch);
+      });
+    });
+
+    document.getElementById('countText').textContent = allChannels.length + ' canales en vivo';
+    buildTabs();
+    renderList();
+  }).catch(function(err) {
+    document.getElementById('countText').textContent = 'Error al cargar';
+    document.getElementById('channelList').innerHTML =
+      '<div class="error-msg">No se pudieron cargar los canales.<br><small style="color:#444">' + err.message + '</small><br><button class="retry-btn" onclick="init()">Reintentar</button></div>';
+  });
+}
+
+// Cargar canales de Animux directo de Firestore
+async function loadAnimuxFirestore() {
+  var API_KEY = 'AIzaSyC0ROz4tvDU9sg60cfcXV6mCo3vPjGLfPg';
+  var PROJECT = 'barbers-9b523';
+  var BASE = 'https://firestore.googleapis.com/v1/projects/' + PROJECT + '/databases/(default)/documents/channels';
+  var channels = [];
+  var pageToken = '';
+  var seen = new Set();
+
+  for (var page = 0; page < 10; page++) {
+    var url = BASE + '?key=' + API_KEY + '&pageSize=200';
+    if (pageToken) url += '&pageToken=' + encodeURIComponent(pageToken);
+    try {
+      var res = await fetch(url);
+      var data = await res.json();
+      var docs = data.documents || [];
+      if (!docs.length) break;
+
+      for (var i = 0; i < docs.length; i++) {
+        var fields = docs[i].fields || {};
+        var name = (fields.name && fields.name.stringValue) || '';
+        var chUrl = (fields.url && fields.url.stringValue) || '';
+        var category = (fields.category && fields.category.stringValue) || 'TV';
+        var logo = (fields.logo && fields.logo.stringValue) || '';
+
+        if (!name || !chUrl) continue;
+        var key = name.toLowerCase().trim();
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        channels.push({
+          name: name,
+          logo: logo,
+          category: category,
+          country: '',
+          url: chUrl,
+          provider: 'Animux'
+        });
+      }
+
+      pageToken = data.nextPageToken || '';
+      if (!pageToken) break;
+    } catch(e) { break; }
+  }
+
+  return channels;
 }
 
 init();
