@@ -152,6 +152,11 @@ export async function resolveStream(url: string): Promise<string | string[]> {
     if (url.includes("embed69.org")) {
       extraHeaders["Referer"] = "https://pelispedia.mov/";
       extraHeaders["Origin"] = "https://pelispedia.mov";
+      extraHeaders["Sec-Fetch-Dest"] = "iframe";
+      extraHeaders["Sec-Fetch-Mode"] = "navigate";
+      extraHeaders["Sec-Fetch-Site"] = "cross-site";
+      extraHeaders["Sec-Fetch-User"] = "?1";
+      extraHeaders["Upgrade-Insecure-Requests"] = "1";
     }
     const html = await readPage(url, extraHeaders);
 

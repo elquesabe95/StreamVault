@@ -20,12 +20,13 @@ async function tryFetch(url: string, headers: Record<string, string>, timeout: n
   return "";
 }
 
-function tryCurl(url: string, userAgent: string): string {
+function tryCurl(url: string, headers: Record<string, string>): string {
   try {
-    const args = ["-s", "-L", "--max-time", "8", "-A", userAgent,
-      "-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "-H", "Accept-Language: es-ES,es;q=0.9,en;q=0.8",
-      url];
+    const args = ["-s", "-L", "--max-time", "8"];
+    Object.entries(headers).forEach(([k, v]) => {
+      args.push("-H", `${k}: ${v}`);
+    });
+    args.push(url);
     const result = spawnSync("curl", args, { encoding: "utf8", maxBuffer: 5 * 1024 * 1024 });
     if (result.stdout?.length > 300) return result.stdout;
   } catch {}
@@ -59,7 +60,7 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   if (html) console.warn(`[readPage] Cloudflare detected on direct`);
 
   // 2. Direct curl — bypasses some JS challenges
-  html = tryCurl(url, userAgent);
+  html = tryCurl(url, headers);
   if (html && !isCloudflareChallenge(html)) {
     console.log(`[readPage] curl (${html.length}b)`);
     return html;
