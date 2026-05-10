@@ -22,7 +22,7 @@ async function tryFetch(url: string, headers: Record<string, string>, timeout: n
 
 function tryCurl(url: string, userAgent: string): string {
   try {
-    const args = ["-s", "-L", "--max-time", "6", "-A", userAgent, url];
+    const args = ["-s", "-L", "--max-time", "10", "-A", userAgent, url];
     const result = spawnSync("curl", args, { encoding: "utf8", maxBuffer: 5 * 1024 * 1024 });
     if (result.stdout?.length > 300) return result.stdout;
   } catch {}
@@ -38,8 +38,9 @@ function isCloudflareChallenge(html: string): boolean {
 }
 
 const PROXIES = [
-  "https://corsproxy.io/?",
   "https://api.allorigins.win/raw?url=",
+  "https://api.codetabs.com/v1/proxy?quest=",
+  "https://corsproxy.io/?",
 ];
 
 export async function readPage(url: string, customHeaders?: Record<string, string>, useProxy: boolean = false): Promise<string> {
@@ -47,7 +48,7 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   const userAgent = headers["User-Agent"];
 
   // 1. Direct fetch — fastest
-  let html = await tryFetch(url, headers, 5000);
+  let html = await tryFetch(url, headers, 8000);
   if (html && !isCloudflareChallenge(html)) {
     console.log(`[readPage] Direct (${html.length}b): ${url.substring(0, 60)}`);
     return html;
@@ -65,7 +66,7 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   if (useProxy) {
     for (const proxy of PROXIES) {
       const proxyUrl = proxy + encodeURIComponent(url);
-      html = await tryFetch(proxyUrl, headers, 12000);
+      html = await tryFetch(proxyUrl, headers, 10000);
       if (html && !isCloudflareChallenge(html) && html.length > 500) {
         console.log(`[readPage] Proxy OK: ${proxy.substring(0, 30)} (${html.length}b)`);
         return html;
