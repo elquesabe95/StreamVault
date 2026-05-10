@@ -11,7 +11,7 @@ export interface PelisSource {
 export async function searchPelispedia(query: string) {
   // Use the correct search pattern: /search?s=query
   const searchUrl = `${BASE_URL}/search?s=${encodeURIComponent(query)}`;
-  const html = await readPage(searchUrl, {}, false);
+  const html = await readPage(searchUrl, {}, true);
   
   const results: { title: string; url: string; poster?: string }[] = [];
   
@@ -38,7 +38,7 @@ export async function searchPelispedia(query: string) {
  * Extract video sources from a PelisPedia page
  */
 export async function getPelispediaSources(pageUrl: string): Promise<PelisSource[]> {
-  const html = await readPage(pageUrl, {}, false);
+  const html = await readPage(pageUrl, {}, true);
   const sources: PelisSource[] = [];
   
   // 1. Extract server names from buttons (try multiple patterns)
@@ -93,7 +93,7 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
  */
 export async function getPelispediaEpisodeUrl(seriesUrl: string, season: number, episode: number): Promise<string | null> {
   try {
-    const html = await readPage(seriesUrl, {}, false);
+    const html = await readPage(seriesUrl, {}, true);
     
     // Primary pattern: /serie/slug/temporada/S/capitulo/E (confirmed from live site)
     const primaryPattern = new RegExp(`/serie/[^"]+/temporada/${season}/capitulo/${episode}[^"]*`, 'i');
