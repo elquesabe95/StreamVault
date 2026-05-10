@@ -61,21 +61,26 @@ export async function GET(req: NextRequest) {
         category: c.category || "General", country: c.country || "Intl", provider: "Premium",
       }));
 
-      // On page 1, fetch live channels from TeleOnline and Animux (with 8s timeout each)
+      // On page 1, also fetch live channels (with generous timeout for proxy)
       if (page === 1) {
         const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T> => {
           return Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
         };
 
-        const [animuxChannels, ...countryResults] = await Promise.allSettled([
-          withTimeout(getAnimuxChannels().catch(() => []), 15000),
-          withTimeout(getChannelsByCountry("colombia").catch(() => []), 15000),
-          withTimeout(getChannelsByCountry("mexico").catch(() => []), 15000),
-          withTimeout(getChannelsByCountry("argentina").catch(() => []), 15000),
+        // Fetch live channels from ALL sources in parallel
+        const liveResults = await Promise.allSettled([
+          withTimeout(getAnimuxChannels().catch(() => []), 25000),
+          withTimeout(getChannelsByCountry("colombia").catch(() => []), 25000),
+          withTimeout(getChannelsByCountry("mexico").catch(() => []), 25000),
+          withTimeout(getChannelsByCountry("argentina").catch(() => []), 25000),
+          withTimeout(getChannelsByCountry("espana").catch(() => []), 25000),
+          withTimeout(getChannelsByCountry("estados-unidos").catch(() => []), 25000),
         ]);
 
-        if (animuxChannels.status === "fulfilled" && Array.isArray(animuxChannels.value)) {
-          for (const ch of animuxChannels.value.slice(0, 200)) {
+        const [animuxR, ...countryRs] = liveResults;
+
+        if (animuxR.status === "fulfilled" && Array.isArray(animuxR.value)) {
+          for (const ch of animuxR.value.slice(0, 300)) {
             results.push({
               name: ch.name, url: `/api/v1/scraper?slug=${encodeURIComponent(ch.url)}&provider=animux`,
               logo: ch.logo || "", category: ch.category || "Animux", provider: "Animux",
@@ -83,9 +88,9 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        for (const r of countryResults) {
+        for (const r of countryRs) {
           if (r.status === "fulfilled" && Array.isArray(r.value)) {
-            for (const ch of r.value.slice(0, 50)) {
+            for (const ch of r.value.slice(0, 80)) {
               results.push({
                 name: ch.name, url: `/api/v1/scraper?slug=${ch.slug}&provider=teleonline`,
                 logo: ch.logo || "", category: "TV", country: ch.country || "Intl", provider: "TeleOnline",
