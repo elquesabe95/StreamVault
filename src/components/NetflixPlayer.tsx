@@ -264,11 +264,36 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
             </button>
             <div>
               <h2 className="text-2xl font-bold text-white drop-shadow-lg">{title || "Reproduciendo..."}</h2>
-
-            </div>
           </div>
-          
 
+          {validSources.length > 1 && (
+            <div className="flex items-center gap-2">
+              <div className="hidden md:flex max-w-xl overflow-x-auto gap-2">
+                {validSources.map((source, index) => (
+                  <button
+                    key={`${source.url}-${index}`}
+                    onClick={() => setCurrentIndex(index)}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all whitespace-nowrap ${
+                      index === currentIndex
+                        ? "bg-yellow-500 text-black border-yellow-400"
+                        : "bg-white/10 text-white border-white/10 hover:bg-white/20"
+                    }`}
+                    title={source.url}
+                  >
+                    <Server size={12} className="inline mr-1" />
+                    {index + 1}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={nextSource}
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-xl text-sm font-bold border border-white/10 transition-all flex items-center gap-2"
+              >
+                Siguiente <SkipForward size={16} />
+              </button>
+            </div>
+          )}
+        </div>
         </div>
       </div>
 
