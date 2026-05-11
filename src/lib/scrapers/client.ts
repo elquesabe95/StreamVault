@@ -3,7 +3,7 @@ import { spawnSync } from "child_process";
 function buildHeaders(customHeaders?: Record<string, string>): Record<string, string> {
   return {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
     "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
     ...customHeaders
   };
@@ -48,7 +48,6 @@ function getProxies(): string[] {
 
 export async function readPage(url: string, customHeaders?: Record<string, string>, useProxy: boolean = false): Promise<string> {
   const headers = buildHeaders(customHeaders);
-  const userAgent = headers["User-Agent"];
 
   // 1. Direct fetch — fastest
   let html = await tryFetch(url, headers, 8000);
@@ -69,9 +68,17 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   if (useProxy) {
     for (const proxy of getProxies()) {
       // Support both ?url= format (Cloudflare Worker) and direct append
-      const sep = proxy.includes("workers.dev") ? "?url=" : "";
-      const proxyUrl = proxy + sep + encodeURIComponent(url);
-      html = await tryFetch(proxyUrl, headers, 10000);
+      const isCFWorker = proxy.includes("workers.dev");
+      const sep = isCFWorker ? "?url=" : "";
+      let proxyUrl = proxy + sep + encodeURIComponent(url);
+      
+      // Pass Referer and Origin if present
+      if (isCFWorker) {
+        if (headers["Referer"]) proxyUrl += `&ref=${encodeURIComponent(headers["Referer"])}`;
+        if (headers["Origin"]) proxyUrl += `&origin=${encodeURIComponent(headers["Origin"])}`;
+      }
+
+      html = await tryFetch(proxyUrl, headers, 15000);
       if (html && !isCloudflareChallenge(html) && html.length > 500) {
         console.log(`[readPage] Proxy OK: ${proxy.substring(0, 30)} (${html.length}b)`);
         return html;

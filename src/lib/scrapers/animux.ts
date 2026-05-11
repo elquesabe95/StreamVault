@@ -3,7 +3,10 @@ import fs from "fs";
 import path from "path";
 
 const BASE_URL = "https://animux.site";
-const CACHE_FILE = path.join(process.cwd(), "src/lib/scrapers/animux-channels.json");
+const IS_RENDER = process.env.RENDER === "true" || !!process.env.RENDER_EXTERNAL_URL;
+const CACHE_FILE = IS_RENDER 
+  ? path.join("/tmp", "animux-channels.json")
+  : path.join(process.cwd(), "src/lib/scrapers/animux-channels.json");
 
 export interface AnimuxChannel {
   id: string;
@@ -96,7 +99,8 @@ export async function getAnimuxChannels(): Promise<AnimuxChannel[]> {
   // 2. Fetch from JSON endpoints
   const endpoints = [
     "https://animux.site/channels.json",
-    "https://animux.site/nacionales.json"
+    "https://animux.site/nacionales.json",
+    "https://animux.site/api/channels"
   ];
 
   for (const url of endpoints) {
@@ -145,10 +149,6 @@ export async function getAnimuxStream(channelUrl: string): Promise<string> {
   console.log(`[Animux] Resolving stream for: ${channelUrl}`);
   const html = await readPage(channelUrl, {}, true);
   
-  // Look for the stream URL in the HTML or scripts
-  // Patterns: 
-  // "src": "http://.../index.m3u8"
-  // var stream = "http://.../index.m3u8"
   // Look for the stream URL in the HTML or scripts
   // Patterns: 
   // "src": "http://.../index.m3u8"
