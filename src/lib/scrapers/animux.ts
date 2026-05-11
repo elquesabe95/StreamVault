@@ -1,10 +1,8 @@
-import { readPage } from "./client";
+import { readPage, readJson } from "./client";
 import fs from "fs";
 import path from "path";
 
 const BASE_URL = "https://animux.site";
-const FIRESTORE_API_KEY = "AIzaSyC0ROz4tvDU9sg60cfcXV6mCo3vPjGLfPg";
-const FIRESTORE_PROJECT_ID = "barbers-9b523";
 const CACHE_FILE = path.join(process.cwd(), "src/lib/scrapers/animux-channels.json");
 
 export interface AnimuxChannel {
@@ -14,17 +12,6 @@ export interface AnimuxChannel {
   url: string;
   logo?: string;
 }
-
-type FirestoreValue = {
-  stringValue?: string;
-  integerValue?: string;
-  doubleValue?: number;
-  booleanValue?: boolean;
-  timestampValue?: string;
-  arrayValue?: { values?: FirestoreValue[] };
-  mapValue?: { fields?: Record<string, FirestoreValue> };
-  nullValue?: null;
-};
 
 function normalizeCategory(category?: string): string {
   if (!category) return "General";
@@ -51,27 +38,10 @@ function normalizeCategory(category?: string): string {
     culture: "Cultura",
     series: "Series",
     nacionales: "Nacionales",
+    "tv abierta": "Nacionales",
   };
 
   return map[value] || category.split(";")[0].trim() || "General";
-}
-
-function firestoreValueToJs(value?: FirestoreValue): any {
-  if (!value) return undefined;
-  if ("stringValue" in value) return value.stringValue;
-  if ("integerValue" in value) return Number(value.integerValue);
-  if ("doubleValue" in value) return value.doubleValue;
-  if ("booleanValue" in value) return value.booleanValue;
-  if ("timestampValue" in value) return value.timestampValue;
-  if ("arrayValue" in value) return value.arrayValue?.values?.map(firestoreValueToJs) || [];
-  if ("mapValue" in value) return firestoreFieldsToJs(value.mapValue?.fields || {});
-  return null;
-}
-
-function firestoreFieldsToJs(fields: Record<string, FirestoreValue>): Record<string, any> {
-  return Object.fromEntries(
-    Object.entries(fields).map(([key, value]) => [key, firestoreValueToJs(value)])
-  );
 }
 
 function toAnimuxChannel(raw: any, fallbackCategory = "General"): AnimuxChannel | null {
@@ -88,57 +58,30 @@ function toAnimuxChannel(raw: any, fallbackCategory = "General"): AnimuxChannel 
   };
 }
 
-async function getAnimuxFirestoreChannels(): Promise<AnimuxChannel[]> {
-  const channels: AnimuxChannel[] = [];
-  let pageToken = "";
-
-  for (let page = 0; page < 20; page++) {
-    const tokenParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "";
-    const url =
-      `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT_ID}` +
-      `/databases/(default)/documents/channels?key=${FIRESTORE_API_KEY}&pageSize=100${tokenParam}`;
-
-    // Use direct fetch for Firestore (Google API, no proxy needed)
-    const response = await fetch(url);
-    const data = await response.json();
-    if (!response.ok) throw new Error(`Firestore HTTP ${response.status}`);
-    const documents = Array.isArray(data?.documents) ? data.documents : [];
-    if (documents.length === 0) break;
-
-    for (const doc of documents) {
-      const fields = firestoreFieldsToJs(doc.fields || {});
-      const id = String(doc.name || "").split("/").pop() || fields.id;
-      const channel = toAnimuxChannel({ ...fields, id }, fields.category);
-      if (channel) channels.push(channel);
-    }
-
-    pageToken = data.nextPageToken || "";
-    if (!pageToken) break;
-  }
-
-  return channels;
-}
-
 /**
  * Get all available channels from Animux
- * Using the official channels.json endpoint and fallback to DOM/Regex
+ * Using the official channels.json and nacionales.json endpoints
  */
 export async function getAnimuxChannels(): Promise<AnimuxChannel[]> {
   // 1. Try local cache first (fast, no network)
   try {
     if (fs.existsSync(CACHE_FILE)) {
-      const cached = JSON.parse(fs.readFileSync(CACHE_FILE, "utf-8"));
-      if (Array.isArray(cached) && cached.length > 0) {
-        console.log(`[Animux] Loaded ${cached.length} channels from local cache`);
-        return cached;
+      const stats = fs.statSync(CACHE_FILE);
+      const mtime = stats.mtime.getTime();
+      const now = new Date().getTime();
+      // Cache for 1 hour
+      if (now - mtime < 3600000) {
+        const cached = JSON.parse(fs.readFileSync(CACHE_FILE, "utf-8"));
+        if (Array.isArray(cached) && cached.length > 0) {
+          console.log(`[Animux] Loaded ${cached.length} channels from local cache`);
+          return cached;
+        }
       }
     }
   } catch (e) {
     console.warn("[Animux] Cache read failed:", e);
   }
 
-  // 2. Try Firestore
-  console.log("[Animux] Fetching from Firestore...");
   const allChannels: AnimuxChannel[] = [];
   const seenIds = new Set<string>();
 
@@ -150,29 +93,47 @@ export async function getAnimuxChannels(): Promise<AnimuxChannel[]> {
     allChannels.push(channel);
   };
 
-  try {
-    const firestoreChannels = await getAnimuxFirestoreChannels();
-    console.log(`[Animux] Loaded ${firestoreChannels.length} channels from Firestore`);
-    firestoreChannels.forEach(addChannel);
+  // 2. Fetch from JSON endpoints
+  const endpoints = [
+    "https://animux.site/channels.json",
+    "https://animux.site/nacionales.json"
+  ];
 
-    // Save to cache for next time
+  for (const url of endpoints) {
+    try {
+      console.log(`[Animux] Fetching from ${url}...`);
+      const data = await readJson(url);
+      if (Array.isArray(data)) {
+        data.forEach(item => addChannel(toAnimuxChannel(item)));
+      } else if (data && typeof data === "object") {
+        // Handle cases where data might be { channels: [...] }
+        const channels = (data as any).channels || (data as any).streams || [];
+        if (Array.isArray(channels)) {
+          channels.forEach((item: any) => addChannel(toAnimuxChannel(item)));
+        }
+      }
+    } catch (e) {
+      console.warn(`[Animux] Failed to fetch from ${url}:`, e);
+    }
+  }
+
+  // If we got channels, save to cache
+  if (allChannels.length > 0) {
     try {
       fs.writeFileSync(CACHE_FILE, JSON.stringify(allChannels, null, 2));
       console.log(`[Animux] Saved ${allChannels.length} channels to cache`);
     } catch (e) {
       console.warn("[Animux] Failed to save cache:", e);
     }
-
-    return allChannels.sort((a, b) => {
-      const cat = a.category.localeCompare(b.category);
-      if (cat !== 0) return cat;
-      return a.name.localeCompare(b.name);
-    });
-  } catch (error) {
-    console.warn("[Animux] Firestore failed:", error);
-    return [];
   }
+
+  return allChannels.sort((a, b) => {
+    const cat = a.category.localeCompare(b.category);
+    if (cat !== 0) return cat;
+    return a.name.localeCompare(b.name);
+  });
 }
+
 
 /**
  * Get the direct stream URL for an Animux channel
@@ -188,12 +149,27 @@ export async function getAnimuxStream(channelUrl: string): Promise<string> {
   // Patterns: 
   // "src": "http://.../index.m3u8"
   // var stream = "http://.../index.m3u8"
+  // Look for the stream URL in the HTML or scripts
+  // Patterns: 
+  // "src": "http://.../index.m3u8"
+  // var stream = "http://.../index.m3u8"
   const streamRegex = /["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/;
   const match = streamRegex.exec(html);
   
   if (match) {
     console.log(`[Animux] Found m3u8 in HTML: ${match[1]}`);
     return match[1];
+  }
+
+  // Check for specific RCN/Nacional patterns in the HTML or scripts
+  if (html.includes("rcnmas") || html.includes("wurl.tv")) {
+    const rcnMatch = /["'](https?:\/\/[^"']+wurl\.tv[^"']+\.m3u8[^"']*)["']/.exec(html);
+    if (rcnMatch) return rcnMatch[1];
+  }
+
+  if (html.includes("jmp2.uk")) {
+    const jmpMatch = /["'](https?:\/\/jmp2\.uk[^"']+\.m3u8[^"']*)["']/.exec(html);
+    if (jmpMatch) return jmpMatch[1];
   }
 
   // Look for iframe
@@ -206,26 +182,34 @@ export async function getAnimuxStream(channelUrl: string): Promise<string> {
     // If the iframe is already an m3u8 (unlikely but possible)
     if (iframeUrl.includes(".m3u8")) return iframeUrl;
     
-    // We could recursively resolve the iframe, but let's try a common proxy pattern first
+    // Handle proxy patterns
     if (iframeUrl.includes("/play/")) {
-      // Extract the ID and try to build the proxy URL
       const idMatch = /\/play\/([^/?]+)/.exec(iframeUrl);
       if (idMatch) {
-        const proxyUrl = `http://181.78.8.199:8000/play/${idMatch[1]}/index.m3u8`;
-        console.log(`[Animux] Guessing proxy URL: ${proxyUrl}`);
+        const id = idMatch[1];
+        // Some IDs are simple like 'a0b0', others are complex
+        const proxyUrl = `http://181.78.8.199:8000/play/${id}/index.m3u8`;
+        console.log(`[Animux] Using proxy URL: ${proxyUrl}`);
         return proxyUrl;
       }
     }
+
+    if (iframeUrl.includes("jmp2.uk")) return iframeUrl;
+    
     return iframeUrl;
   }
 
-  // Last ditch effort: search for anything that looks like an HLS stream in any script
+  // Last ditch effort: search for anything that looks like an HLS stream
   const scriptRegex = /https?:\/\/[^"'\s]+\.m3u8[^"'\s]*/g;
   const scriptMatches = html.match(scriptRegex);
   if (scriptMatches && scriptMatches.length > 0) {
-    console.log(`[Animux] Found m3u8 in scripts: ${scriptMatches[0]}`);
-    return scriptMatches[0];
+    // Prefer non-advertisement/tracking streams
+    const cleanMatch = scriptMatches.find(m => !m.includes("ads") && !m.includes("log"));
+    const finalMatch = cleanMatch || scriptMatches[0];
+    console.log(`[Animux] Found m3u8 in scripts: ${finalMatch}`);
+    return finalMatch;
   }
   
   return channelUrl;
 }
+
