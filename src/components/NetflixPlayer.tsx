@@ -258,14 +258,7 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
       {/* Header Info */}
       <div className={`absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-black/80 to-transparent transition-opacity duration-500 ${showControls ? "opacity-100" : "opacity-0"}`}>
         <div className="p-8 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={onBack} className="text-white hover:text-yellow-500 transition-colors">
-              <SkipForward className="rotate-180" />
-            </button>
-            <div>
-              <h2 className="text-2xl font-bold text-white drop-shadow-lg">{title || "Reproduciendo..."}</h2>
-          </div>
-
+          <div />
           {validSources.length > 1 && (
             <div className="flex items-center gap-2">
               <div className="hidden md:flex max-w-xl overflow-x-auto gap-2">
@@ -293,7 +286,6 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
               </button>
             </div>
           )}
-        </div>
         </div>
       </div>
 
