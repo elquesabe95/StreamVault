@@ -1,8 +1,11 @@
-import { readPage, readJson } from "./client";
+import { readPage } from "./client";
+import fs from "fs";
+import path from "path";
 
 const BASE_URL = "https://animux.site";
 const FIRESTORE_API_KEY = "AIzaSyC0ROz4tvDU9sg60cfcXV6mCo3vPjGLfPg";
 const FIRESTORE_PROJECT_ID = "barbers-9b523";
+const CACHE_FILE = path.join(process.cwd(), "src/lib/scrapers/animux-channels.json");
 
 export interface AnimuxChannel {
   id: string;
@@ -121,8 +124,21 @@ async function getAnimuxFirestoreChannels(): Promise<AnimuxChannel[]> {
  * Using the official channels.json endpoint and fallback to DOM/Regex
  */
 export async function getAnimuxChannels(): Promise<AnimuxChannel[]> {
-  console.log("[Animux] Fetching catalog from Firestore...");
+  // 1. Try local cache first (fast, no network)
+  try {
+    if (fs.existsSync(CACHE_FILE)) {
+      const cached = JSON.parse(fs.readFileSync(CACHE_FILE, "utf-8"));
+      if (Array.isArray(cached) && cached.length > 0) {
+        console.log(`[Animux] Loaded ${cached.length} channels from local cache`);
+        return cached;
+      }
+    }
+  } catch (e) {
+    console.warn("[Animux] Cache read failed:", e);
+  }
 
+  // 2. Try Firestore
+  console.log("[Animux] Fetching from Firestore...");
   const allChannels: AnimuxChannel[] = [];
   const seenIds = new Set<string>();
 
@@ -134,11 +150,19 @@ export async function getAnimuxChannels(): Promise<AnimuxChannel[]> {
     allChannels.push(channel);
   };
 
-  // Only use Firestore — JSON endpoints are React SPA routes that return HTML
   try {
     const firestoreChannels = await getAnimuxFirestoreChannels();
     console.log(`[Animux] Loaded ${firestoreChannels.length} channels from Firestore`);
     firestoreChannels.forEach(addChannel);
+
+    // Save to cache for next time
+    try {
+      fs.writeFileSync(CACHE_FILE, JSON.stringify(allChannels, null, 2));
+      console.log(`[Animux] Saved ${allChannels.length} channels to cache`);
+    } catch (e) {
+      console.warn("[Animux] Failed to save cache:", e);
+    }
+
     return allChannels.sort((a, b) => {
       const cat = a.category.localeCompare(b.category);
       if (cat !== 0) return cat;
