@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Animux Channel Extractor</title></head>
+<body style="background:#0a0a0a;color:#fff;font-family:monospace;padding:20px">
+<h2>⏳ Extrayendo canales de Animux...</h2>
+<div id="log"></div>
+<div id="output" style="margin-top:20px"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+var log=document.getElementById('log'), out=document.getElementById('output');
+function L(m){ log.innerHTML+=m+'<br>'; }
+
+firebase.initializeApp({projectId:'barbers-9b523'});
+var db=firebase.firestore();
+var channels=[];
+
+L('Conectando a Firestore...');
+db.collection('channels').get().then(function(snap){
+  snap.forEach(function(doc){
+    var d=doc.data();
+    channels.push({name:d.name||'', url:d.url||'', category:d.category||'', logo:d.logo||''});
+  });
+  L('✅ Extraídos '+channels.length+' canales!');
+
+  // Mostrar y copiar
+  var json=JSON.stringify(channels,null,2);
+  out.innerHTML='<textarea onclick="this.select()" style="width:100%;height:400px;background:#111;color:#0f0;border:1px solid #333;font-family:monospace;font-size:11px;padding:10px">'+json+'</textarea><br><br><button onclick="navigator.clipboard.writeText(this.previousSibling.value)" style="padding:10px 20px;background:#e0001b;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:14px">📋 Copiar JSON</button><br><br><small style="color:#666">Copiá el JSON y guardalo como animux-channels.json en el proyecto</small>';
+}).catch(function(e){
+  L('❌ Error: '+e.message);
+});
+</script>
+</body>
+</html>
