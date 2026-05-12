@@ -147,13 +147,19 @@ export async function resolveStream(url: string): Promise<string | string[]> {
   console.log(`[Resolver] Resolving: ${url}`);
 
   try {
-    // Use proxy for embed69 to bypass IP blocking on Render
-    const needsProxy = url.includes("embed69.org");
+    // Try direct first, proxy as fallback (embed69 may block proxy IPs)
+    const needsProxy = false;
     const extraHeaders: Record<string, string> = {};
     if (url.includes("embed69.org")) {
       extraHeaders["Referer"] = "https://pelispedia.mov/";
     }
-    const html = await readPage(url, extraHeaders, needsProxy);
+    let html = await readPage(url, extraHeaders, needsProxy);
+
+    // If direct failed (too short), retry with proxy
+    if ((!html || html.length < 500) && url.includes("embed69.org")) {
+      console.log(`[Resolver] Direct failed for embed69, retrying via proxy...`);
+      html = await readPage(url, extraHeaders, true);
+    }
 
     if (!html || html.length < 200) {
       console.warn(`[Resolver] Empty/short response for ${url}`);
