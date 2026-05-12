@@ -123,9 +123,13 @@ export async function GET(req: NextRequest) {
     const seen = new Set<string>();
     let count = 1;
 
-    // Run all providers in parallel for speed
+    // Timeout wrapper — slow providers won't block the response
+    const withTimeout = <T>(p: Promise<T>, ms: number, name: string): Promise<T> =>
+      Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${name} timeout`)), ms))]);
+
+    // Run all providers in parallel with individual timeouts
     const allResults = await Promise.allSettled(
-      providers.map(p => p.fn().catch(() => []))
+      providers.map(p => withTimeout(p.fn().catch(() => []), 12000, p.name))
     );
 
     for (const r of allResults) {
