@@ -198,7 +198,6 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      _deploy: "v3-jwt-fix",
       data: { type, ...metadata, sources: finalSources },
     });
 
