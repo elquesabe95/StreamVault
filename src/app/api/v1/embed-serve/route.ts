@@ -18,7 +18,9 @@ function getPlaybackType(url: string): PlaybackType {
 
 async function resolveDeep(url: string): Promise<string[]> {
   // Direct iframe hosts that work without JWT resolution
-  const directIframe = /voe\.sx|minochinos|hglink\.to|bysedikamoum/.test(url);
+  const directIframe = /voe\.sx|hglink\.to|bysedikamoum/.test(url);
+  // Skip dead hosts
+  if (/minochinos/.test(url)) return [];
   if (directIframe) return [url];
   
   const first = await resolveStream(url).catch(() => url);
