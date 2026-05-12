@@ -85,11 +85,8 @@ export async function GET(req: NextRequest) {
       return null; // No match found — skip this provider
     };
 
-    // Build a direct URL from title (for when search returns no results for short/common words)
+    // Build slug from title for direct URL fallback
     const slugTitle = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    const directUrl = type === "movie"
-      ? `https://pelispedia.mov/pelicula/${slugTitle}/`
-      : `https://pelispedia.mov/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
 
     const providers = [
       {
