@@ -77,11 +77,12 @@ export async function GET(req: NextRequest) {
       const wordRegex = new RegExp(`\\b${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
       const wordMatch = results.find((r: any) => wordRegex.test(norm(r.title)));
       if (wordMatch) return wordMatch;
-      // Fallback: only if query is long enough to avoid false positives
+      // Fallback: only if query is long enough and found something reasonable
       if (q.length > 5) {
-        return results.find((r: any) => { const t = norm(r.title); return t.includes(q) || q.includes(t); }) || results[0];
+        const partial = results.find((r: any) => { const t = norm(r.title); return t.includes(q) || q.includes(t); });
+        if (partial) return partial;
       }
-      return results[0];
+      return null; // No match found — skip this provider
     };
 
     const providers = [
