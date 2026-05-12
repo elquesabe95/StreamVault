@@ -31,8 +31,7 @@ export default {
     try {
       const res = await fetch(target, { 
         headers, 
-        redirect: "follow",
-        cf: { cacheEverything: true, cacheTtl: 3600 }
+        redirect: "follow"
       });
       
       const body = await res.text();
