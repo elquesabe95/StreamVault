@@ -55,7 +55,27 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   const cacheBust = `_cb=${Date.now()}`;
   const freshUrl = url.includes("?") ? `${url}&${cacheBust}` : `${url}?${cacheBust}`;
 
-  // 1. Direct fetch — fastest
+  // When proxy is requested, go straight to it (skip direct/curl which are blocked on Render)
+  if (useProxy) {
+    for (const proxy of getProxies()) {
+      const isCFWorker = proxy.includes("workers.dev");
+      const proxyUrl = `${proxy}?url=${encodeURIComponent(freshUrl)}`;
+      let fullUrl = proxyUrl;
+      if (isCFWorker) {
+        if (headers["Referer"]) fullUrl += `&ref=${encodeURIComponent(headers["Referer"])}`;
+        if (headers["Origin"]) fullUrl += `&origin=${encodeURIComponent(headers["Origin"])}`;
+      }
+      const html = await tryFetch(fullUrl, headers, 15000);
+      if (html && !isCloudflareChallenge(html) && html.length > 500) {
+        console.log(`[readPage] Proxy OK: ${proxy.substring(0, 30)} (${html.length}b)`);
+        return html;
+      }
+    }
+    console.warn(`[readPage] Proxy failed for: ${url.substring(0, 80)}`);
+    return "";
+  }
+
+  // No proxy requested — try direct then curl
   let html = await tryFetch(freshUrl, headers, 8000);
   if (html && !isCloudflareChallenge(html)) {
     console.log(`[readPage] Direct (${html.length}b): ${url.substring(0, 60)}`);
@@ -63,33 +83,10 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   }
   if (html) console.warn(`[readPage] Cloudflare detected on direct`);
 
-  // 2. Direct curl — bypasses some JS challenges
   html = tryCurl(freshUrl, headers);
   if (html && !isCloudflareChallenge(html)) {
     console.log(`[readPage] curl (${html.length}b)`);
     return html;
-  }
-
-  // 3. Proxy fallback — try multiple proxies
-  if (useProxy) {
-    for (const proxy of getProxies()) {
-      // Support both ?url= format (Cloudflare Worker) and direct append
-      const isCFWorker = proxy.includes("workers.dev");
-      const sep = isCFWorker ? "?url=" : "";
-      let proxyUrl = proxy + sep + encodeURIComponent(freshUrl);
-      
-      // Pass Referer and Origin if present
-      if (isCFWorker) {
-        if (headers["Referer"]) proxyUrl += `&ref=${encodeURIComponent(headers["Referer"])}`;
-        if (headers["Origin"]) proxyUrl += `&origin=${encodeURIComponent(headers["Origin"])}`;
-      }
-
-      html = await tryFetch(proxyUrl, headers, 15000);
-      if (html && !isCloudflareChallenge(html) && html.length > 500) {
-        console.log(`[readPage] Proxy OK: ${proxy.substring(0, 30)} (${html.length}b)`);
-        return html;
-      }
-    }
   }
 
   console.warn(`[readPage] FAILED after all attempts: ${url.substring(0, 80)}`);
