@@ -198,6 +198,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      _v: 3,
       data: { type, ...metadata, sources: finalSources },
     });
 

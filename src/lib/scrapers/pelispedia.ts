@@ -1,5 +1,8 @@
 import { readPage } from "./client";
 
+// Force module recompilation - v2
+export const PELISPEDIA_VERSION = 2;
+
 const BASE_URL = "https://pelispedia.mov";
 
 export interface PelisSource {
