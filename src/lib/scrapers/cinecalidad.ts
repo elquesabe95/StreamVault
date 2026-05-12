@@ -2,6 +2,23 @@ import { readPage } from "./client";
 
 const BASE_URL = "https://www.cinecalidad.ro";
 
+/**
+ * Force proxy for all CineCalidad requests (blocks Render IPs)
+ */
+async function readCC(url: string): Promise<string> {
+  const proxyBase = "https://streamvault-proxy.elquesabe95.workers.dev";
+  const proxyUrl = `${proxyBase}?url=${encodeURIComponent(url)}&ref=${encodeURIComponent(BASE_URL + "/")}`;
+  const res = await fetch(proxyUrl, {
+    signal: AbortSignal.timeout(15000),
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "Accept": "text/html,application/xhtml+xml",
+      "Accept-Language": "es-ES,es;q=0.9",
+    }
+  });
+  return res.ok ? res.text() : "";
+}
+
 export interface CineSource {
   server: string;
   url: string;
@@ -13,7 +30,7 @@ export interface CineSource {
  */
 export async function searchCinecalidad(query: string) {
   const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(query)}`;
-  const html = await readPage(searchUrl, {}, true);
+  const html = await readCC(searchUrl);
   
   const results: { title: string; url: string; poster?: string }[] = [];
   
@@ -40,7 +57,7 @@ export async function searchCinecalidad(query: string) {
  * Extract sources from CineCalidad
  */
 export async function getCinecalidadSources(pageUrl: string): Promise<CineSource[]> {
-  const html = await readPage(pageUrl, {}, true);
+  const html = await readCC(pageUrl);
   const sources: CineSource[] = [];
   
   // Pattern: service=OnlineFilemoon data=zlvmrrhp68nw
@@ -87,7 +104,7 @@ export async function getCinecalidadSources(pageUrl: string): Promise<CineSource
  */
 export async function getCinecalidadEpisodeUrl(seriesUrl: string, season: number, episode: number): Promise<string | null> {
   try {
-    const html = await readPage(seriesUrl, {}, true);
+    const html = await readCC(seriesUrl);
     const searchString = `-${season}x${episode}`;
     const searchString2 = `season-${season}-episode-${episode}`;
     

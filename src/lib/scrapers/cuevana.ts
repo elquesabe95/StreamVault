@@ -16,34 +16,24 @@ export interface CuevanaSource {
 }
 
 async function getWorkingBase(): Promise<string> {
-  const commonHeaders = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-    'Cache-Control': 'max-age=0',
-    'Sec-Ch-Ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
-    'Sec-Ch-Ua-Mobile': '?0',
-    'Sec-Ch-Ua-Platform': '"Windows"',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'none',
-    'Sec-Fetch-User': '?1',
-    'Upgrade-Insecure-Requests': '1'
-  };
+  return DOMAINS[0];
+}
 
-  for (const domain of DOMAINS) {
-    try {
-      const res = await fetch(`${domain}/`, {
-        signal: AbortSignal.timeout(6000),
-        headers: commonHeaders
-      });
-      if (res.status === 200) {
-        const html = await res.text();
-        if (html.length > 5000) return domain;
-      }
-    } catch (_) {}
-  }
-  return DOMAINS[0]; 
+/**
+ * Force proxy for all Cuevana requests (their Cloudflare blocks Render)
+ */
+async function readCuevana(url: string): Promise<string> {
+  const proxyBase = "https://streamvault-proxy.elquesabe95.workers.dev";
+  const proxyUrl = `${proxyBase}?url=${encodeURIComponent(url)}&ref=${encodeURIComponent("https://cuevana.biz/")}`;
+  const res = await fetch(proxyUrl, {
+    signal: AbortSignal.timeout(15000),
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "Accept": "text/html,application/xhtml+xml",
+      "Accept-Language": "es-ES,es;q=0.9",
+    }
+  });
+  return res.ok ? res.text() : "";
 }
 
 /**
@@ -52,7 +42,7 @@ async function getWorkingBase(): Promise<string> {
 export async function searchCuevana(query: string) {
   const BASE_URL = await getWorkingBase();
   const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(query)}`;
-  const html = await readPage(searchUrl, {}, true);
+  const html = await readCuevana(searchUrl);
   
   const results: { title: string; url: string; poster?: string }[] = [];
   
@@ -82,7 +72,7 @@ export async function searchCuevana(query: string) {
  * Extract sources from Cuevana
  */
 export async function getCuevanaSources(pageUrl: string): Promise<CuevanaSource[]> {
-  const html = await readPage(pageUrl, {}, true);
+  const html = await readCuevana(pageUrl);
   const sources: CuevanaSource[] = [];
   
   // 1. Try TPlayer divs or servers script
@@ -124,7 +114,7 @@ export async function getCuevanaSources(pageUrl: string): Promise<CuevanaSource[
 export async function getCuevanaEpisodeUrl(seriesUrl: string, season: number, episode: number): Promise<string | null> {
   try {
     const BASE_URL = DOMAINS.find(d => seriesUrl.startsWith(d)) || DOMAINS[0];
-    const html = await readPage(seriesUrl, {}, true);
+    const html = await readCuevana(seriesUrl);
     
     // Multiple patterns for episode URLs
     const searchPatterns = [
