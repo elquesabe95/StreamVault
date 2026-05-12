@@ -87,8 +87,9 @@ export async function GET(req: NextRequest) {
 
     // Build a direct URL from title (for when search returns no results for short/common words)
     const slugTitle = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    const directSeriesUrl = `https://pelispedia.mov/serie/${slugTitle}/`;
-    const directMovieUrl = `https://pelispedia.mov/pelicula/${slugTitle}/`;
+    const directUrl = type === "movie"
+      ? `https://pelispedia.mov/pelicula/${slugTitle}/`
+      : `https://pelispedia.mov/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
 
     const providers = [
       {
@@ -100,17 +101,16 @@ export async function GET(req: NextRequest) {
           
           if (match) {
             targetUrl = match.url;
+            if (type !== "movie") {
+              const epUrl = await getPelispediaEpisodeUrl(match.url, season, episode);
+              if (epUrl) targetUrl = epUrl; else return [];
+            }
           } else {
-            // Search failed — try direct URL from title slug
-            targetUrl = type === "movie" ? directMovieUrl : directSeriesUrl;
+            // Search failed — use direct URL from title slug
+            targetUrl = directUrl;
           }
           
           if (!targetUrl) return [];
-          
-          if (type !== "movie") {
-            const epUrl = await getPelispediaEpisodeUrl(targetUrl, season, episode);
-            if (epUrl) targetUrl = epUrl; else return [];
-          }
           const sources = await getPelispediaSources(targetUrl);
           return sources.map((s: any) => ({ ...s, lang: "Latino" }));
         },
