@@ -85,7 +85,9 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
     });
   }
   
-  return sources;
+  // Filter out known dead hosts
+  const deadHosts = /minochinos|earnvids/i;
+  return sources.filter(s => !deadHosts.test(s.url));
 }
 
 /**
