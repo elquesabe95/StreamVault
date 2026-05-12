@@ -50,8 +50,8 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
     if (text) serverNames.push(text);
   }
 
-  // 2. Extract iframes from player divs (handles nested divs by scanning for src)
-  const playerDivRegex = /<div[^>]+id="player-(\d+)"[^>]*>[\s\S]*?src=["']((?:https?:)?\/\/[^"']+)["']/g;
+  // 2. Extract iframes from player divs
+  const playerDivRegex = /<div[^>]+id="player-(\d+)"[^>]*>[\s\S]*?<iframe[^>]+src=["']((?:https?:)?\/\/[^"']+)["']/g;
   let pMatch;
   
   while ((pMatch = playerDivRegex.exec(html)) !== null) {
