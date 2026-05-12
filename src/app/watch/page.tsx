@@ -55,7 +55,7 @@ function WatchContent() {
       
       setLoading(true);
       try {
-        let apiUrl = `/api/v1/scraper?query=${encodeURIComponent(query)}`;
+        let apiUrl = `/api/v1/embed-serve?query=${encodeURIComponent(query)}`;
         const season = searchParams.get("season");
         const episode = searchParams.get("episode");
         const id = searchParams.get("id");
@@ -70,8 +70,9 @@ function WatchContent() {
           setSources([{ url: res.url }]);
         } else {
           const data = await res.json();
-          if (data.sources && data.sources.length > 0) {
-              setSources(data.sources);
+          const sources = data.data?.sources || data.sources;
+          if (sources && sources.length > 0) {
+              setSources(sources);
           } else if (data.url) {
               setSources([{ url: data.url }]);
           } else {
