@@ -5,6 +5,8 @@ function buildHeaders(customHeaders?: Record<string, string>): Record<string, st
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
     "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
     ...customHeaders
   };
 }
@@ -49,8 +51,12 @@ function getProxies(): string[] {
 export async function readPage(url: string, customHeaders?: Record<string, string>, useProxy: boolean = false): Promise<string> {
   const headers = buildHeaders(customHeaders);
 
+  // Append cache-busting to avoid stale proxy responses
+  const cacheBust = `_cb=${Date.now()}`;
+  const freshUrl = url.includes("?") ? `${url}&${cacheBust}` : `${url}?${cacheBust}`;
+
   // 1. Direct fetch — fastest
-  let html = await tryFetch(url, headers, 8000);
+  let html = await tryFetch(freshUrl, headers, 8000);
   if (html && !isCloudflareChallenge(html)) {
     console.log(`[readPage] Direct (${html.length}b): ${url.substring(0, 60)}`);
     return html;
@@ -58,7 +64,7 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   if (html) console.warn(`[readPage] Cloudflare detected on direct`);
 
   // 2. Direct curl — bypasses some JS challenges
-  html = tryCurl(url, headers);
+  html = tryCurl(freshUrl, headers);
   if (html && !isCloudflareChallenge(html)) {
     console.log(`[readPage] curl (${html.length}b)`);
     return html;
@@ -70,7 +76,7 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
       // Support both ?url= format (Cloudflare Worker) and direct append
       const isCFWorker = proxy.includes("workers.dev");
       const sep = isCFWorker ? "?url=" : "";
-      let proxyUrl = proxy + sep + encodeURIComponent(url);
+      let proxyUrl = proxy + sep + encodeURIComponent(freshUrl);
       
       // Pass Referer and Origin if present
       if (isCFWorker) {
