@@ -73,9 +73,15 @@ export async function GET(req: NextRequest) {
       // Exact match
       const exact = results.find((r: any) => norm(r.title) === q);
       if (exact) return exact;
-      // Word-boundary match (avoid partials like "From" matching "Transformers")
+      // Word-boundary match — but reject if title is way longer than query (false positive)
       const wordRegex = new RegExp(`\\b${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-      const wordMatch = results.find((r: any) => wordRegex.test(norm(r.title)));
+      const wordMatch = results.find((r: any) => {
+        const t = norm(r.title);
+        if (!wordRegex.test(t)) return false;
+        // If query is short and title is much longer, it's probably a false match
+        if (q.length <= 5 && t.length > q.length * 3) return false;
+        return true;
+      });
       if (wordMatch) return wordMatch;
       // Fallback: only if query is long enough and found something reasonable
       if (q.length > 5) {
