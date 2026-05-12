@@ -258,24 +258,33 @@ export async function resolveStream(url: string): Promise<string | string[]> {
         }
       }
 
-      // JWT dataLink regex fallback
-      const dataLinkMatch = /let\s+dataLink\s*=\s*(\[[\s\S]*?\]);/.exec(html)
-        || /const\s+dataLink\s*=\s*(\[[\s\S]*?\]);/.exec(html)
-        || /var\s+dataLink\s*=\s*(\[[\s\S]*?\]);/.exec(html);
+      // JWT dataLink regex — handles both array and object formats
+      const dlRegex = /(?:let|const|var)\s+dataLink\s*=\s*(\[[\s\S]*?\]|\{[\s\S]*?\});/;
+      const dataLinkMatch = dlRegex.exec(html);
 
       if (dataLinkMatch) {
         try {
-          const dataLink = JSON.parse(dataLinkMatch[1]);
+          const parsed = JSON.parse(dataLinkMatch[1]);
           const jwtLinks: string[] = [];
-          for (const file of dataLink) {
-            const embeds = file.sortedEmbeds || file.embeds || [];
-            for (const embed of embeds) {
-              const link = decodeJwtLink(embed.link || embed.url || "");
-              if (link) jwtLinks.push(link);
+          
+          // Handle object format: {data: {embeds: [...]}}
+          let embeds: any[] = [];
+          if (parsed.data?.embeds) {
+            embeds = parsed.data.embeds;
+          } else if (Array.isArray(parsed)) {
+            // Handle array format: [...]
+            for (const file of parsed) {
+              embeds.push(...(file.sortedEmbeds || file.embeds || []));
             }
           }
+          
+          for (const embed of embeds) {
+            const link = decodeJwtLink(embed.link || embed.url || "");
+            if (link) jwtLinks.push(link);
+          }
+          
           if (jwtLinks.length > 0) {
-            console.log(`[Resolver] Extracted ${jwtLinks.length} JWT servers (regex)`);
+            console.log(`[Resolver] Extracted ${jwtLinks.length} JWT servers`);
             return [...new Set(jwtLinks)];
           }
         } catch (e) {
