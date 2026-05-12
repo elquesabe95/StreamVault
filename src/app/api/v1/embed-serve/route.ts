@@ -70,9 +70,18 @@ export async function GET(req: NextRequest) {
       if (!results?.length) return null;
       const q = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       const norm = (t: string) => t.replace(/&#39;/g, "'").replace(/&amp;/g, "&").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      return results.find((r: any) => norm(r.title) === q) ||
-        results.find((r: any) => { const t = norm(r.title); return t.includes(q) || q.includes(t); }) ||
-        results[0];
+      // Exact match
+      const exact = results.find((r: any) => norm(r.title) === q);
+      if (exact) return exact;
+      // Word-boundary match (avoid partials like "From" matching "Transformers")
+      const wordRegex = new RegExp(`\\b${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+      const wordMatch = results.find((r: any) => wordRegex.test(norm(r.title)));
+      if (wordMatch) return wordMatch;
+      // Fallback: only if query is long enough to avoid false positives
+      if (q.length > 5) {
+        return results.find((r: any) => { const t = norm(r.title); return t.includes(q) || q.includes(t); }) || results[0];
+      }
+      return results[0];
     };
 
     const providers = [
