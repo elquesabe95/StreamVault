@@ -93,56 +93,60 @@ export async function GET(req: NextRequest) {
 
     const providers = [
       {
-        name: "PelisPedia",
+        name: "CineCalidad",
         fn: async () => {
-          const res = await searchPelispedia(query);
+          const res = await searchCinecalidad(query);
           let match = findExactMatch(res);
-          let targetUrl = "";
-          
-          if (match) {
-            targetUrl = match.url;
-            if (type !== "movie") {
-              const epUrl = await getPelispediaEpisodeUrl(match.url, season, episode);
-              if (epUrl) targetUrl = epUrl; else return [];
-            }
-          } else {
-            // Search failed — use direct URL from title slug
-            targetUrl = directUrl;
+          let targetUrl = match?.url || (type === "movie" ? "" : "");
+          if (!match) {
+            targetUrl = type === "movie"
+              ? `https://www.cinecalidad.ro/pelicula/${slugTitle}/`
+              : `https://www.cinecalidad.ro/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
+          } else if (type !== "movie") {
+            const epUrl = await getCinecalidadEpisodeUrl(match.url, season, episode);
+            if (epUrl) targetUrl = epUrl; else return [];
           }
-          
           if (!targetUrl) return [];
-          const sources = await getPelispediaSources(targetUrl);
-          return sources.map((s: any) => ({ ...s, lang: "Latino" }));
+          const sources = await getCinecalidadSources(targetUrl);
+          return sources.map((s: any) => ({ ...s, lang: s.lang === "latino" ? "Latino" : s.lang === "spanish" ? "Castellano" : "Sub" }));
         },
       },
       {
         name: "Cuevana",
         fn: async () => {
           const res = await searchCuevana(query);
-          const match = findExactMatch(res);
-          if (!match) return [];
-          let targetUrl = match.url;
-          if (type !== "movie") {
+          let match = findExactMatch(res);
+          let targetUrl = match?.url || "";
+          if (!match) {
+            targetUrl = type === "movie"
+              ? `https://cuevana.biz/pelicula/${slugTitle}/`
+              : `https://cuevana.biz/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
+          } else if (type !== "movie") {
             const epUrl = await getCuevanaEpisodeUrl(match.url, season, episode);
             if (epUrl) targetUrl = epUrl; else return [];
           }
+          if (!targetUrl) return [];
           const sources = await getCuevanaSources(targetUrl);
           return sources.map((s: any) => ({ ...s, lang: s.lang === "latino" ? "Latino" : s.lang === "spanish" ? "Castellano" : "Sub" }));
         },
       },
       {
-        name: "CineCalidad",
+        name: "PelisPedia",
         fn: async () => {
-          const res = await searchCinecalidad(query);
-          const match = findExactMatch(res);
-          if (!match) return [];
-          let targetUrl = match.url;
-          if (type !== "movie") {
-            const epUrl = await getCinecalidadEpisodeUrl(match.url, season, episode);
+          const res = await searchPelispedia(query);
+          let match = findExactMatch(res);
+          let targetUrl = match?.url || "";
+          if (!match) {
+            targetUrl = type === "movie"
+              ? `https://pelispedia.mov/pelicula/${slugTitle}/`
+              : `https://pelispedia.mov/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
+          } else if (type !== "movie") {
+            const epUrl = await getPelispediaEpisodeUrl(match.url, season, episode);
             if (epUrl) targetUrl = epUrl; else return [];
           }
-          const sources = await getCinecalidadSources(targetUrl);
-          return sources.map((s: any) => ({ ...s, lang: s.lang === "latino" ? "Latino" : s.lang === "spanish" ? "Castellano" : "Sub" }));
+          if (!targetUrl) return [];
+          const sources = await getPelispediaSources(targetUrl);
+          return sources.map((s: any) => ({ ...s, lang: "Latino" }));
         },
       },
     ];
