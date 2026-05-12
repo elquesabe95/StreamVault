@@ -258,8 +258,8 @@ export async function resolveStream(url: string): Promise<string | string[]> {
         }
       }
 
-      // JWT dataLink regex — handles both array and object formats
-      const dlRegex = /(?:let|const|var)\s+dataLink\s*=\s*(\[[\s\S]*?\]|\{[\s\S]*?\});/;
+      // JWT dataLink regex — handles both array and nested object formats
+      const dlRegex = /(?:let|const|var)\s+dataLink\s*=\s*(\[[\s\S]*?\]|\{[\s\S]*\});/;
       const dataLinkMatch = dlRegex.exec(html);
 
       if (dataLinkMatch) {
