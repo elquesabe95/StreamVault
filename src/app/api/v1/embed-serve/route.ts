@@ -68,29 +68,50 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. Scrape sources from Spanish-language providers
+    const year = metadata.year || "";
     const findExactMatch = (results: any[]) => {
       if (!results?.length) return null;
       const q = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       const norm = (t: string) => t.replace(/&#39;/g, "'").replace(/&amp;/g, "&").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      // Exact match
+      // 1. Exact title + year match
+      if (year) {
+        const exactYear = results.find((r: any) => norm(r.title) === q && r.title.includes(year));
+        if (exactYear) return exactYear;
+      }
+      // 2. Exact title match
       const exact = results.find((r: any) => norm(r.title) === q);
       if (exact) return exact;
-      // Word-boundary match — but reject if title is way longer than query (false positive)
+      // 3. Exact title match on any result (case insensitive original)
+      const exactOrig = results.find((r: any) => r.title.toLowerCase().trim() === query.toLowerCase().trim());
+      if (exactOrig) return exactOrig;
+      // 4. Word-boundary + year filter
       const wordRegex = new RegExp(`\\b${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
       const wordMatch = results.find((r: any) => {
         const t = norm(r.title);
         if (!wordRegex.test(t)) return false;
-        // If query is short and title is much longer, it's probably a false match
         if (q.length <= 5 && t.length > q.length * 3) return false;
+        if (year && !r.title.includes(year)) return false; // Enforce year match
         return true;
       });
       if (wordMatch) return wordMatch;
-      // Fallback: only if query is long enough and found something reasonable
+      // 5. Word-boundary without year (looser)
+      const wordMatchLooser = results.find((r: any) => {
+        const t = norm(r.title);
+        if (!wordRegex.test(t)) return false;
+        if (q.length <= 5 && t.length > q.length * 3) return false;
+        return true;
+      });
+      if (wordMatchLooser) return wordMatchLooser;
+      // 6. Fallback: only if query is long enough
       if (q.length > 5) {
+        if (year) {
+          const partialYear = results.find((r: any) => { const t = norm(r.title); return (t.includes(q) || q.includes(t)) && r.title.includes(year); });
+          if (partialYear) return partialYear;
+        }
         const partial = results.find((r: any) => { const t = norm(r.title); return t.includes(q) || q.includes(t); });
         if (partial) return partial;
       }
-      return null; // No match found — skip this provider
+      return null;
     };
 
     // Build slug from title for direct URL fallback
