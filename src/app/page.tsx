@@ -7,284 +7,240 @@ export default function Home() {
     <>
       <style>{`
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-        :root{--bg:#0a0a0a;--surface:#141414;--surface2:#1a1a1a;--border:#2a2a2a;--accent:#e50914;--accent2:#b81d24;--text:#f5f5f5;--muted:#737373;--green:#46d369;--red:#e50914;--orange:#f5a623;--radius:8px}
+        :root{--bg:#050508;--surface:#0a0a0f;--border:#1c1c24;--text:#e8e8ec;--muted:#5a5a6e;--accent:#a3e635;--accent2:#65a30d}
         html{scroll-behavior:smooth}
-        body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,sans-serif;min-height:100vh;overflow-x:hidden}
-        body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 30% 0%,rgba(229,9,20,.04),transparent 60%),radial-gradient(ellipse at 70% 100%,rgba(229,9,20,.02),transparent 50%);pointer-events:none;z-index:0}
-        .bg-glow{position:fixed;border-radius:50%;filter:blur(120px);pointer-events:none;z-index:0}
-        .glow-1{width:600px;height:600px;background:rgba(229,9,20,.05);top:-200px;left:-200px}
-        .glow-2{width:500px;height:500px;background:rgba(229,9,20,.03);bottom:-150px;right:-150px}
-        .wrapper{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 28px}
-        header{border-bottom:1px solid var(--border);padding:22px 0;position:sticky;top:0;background:rgba(8,11,16,.88);backdrop-filter:blur(20px);z-index:100}
-        .header-inner{max-width:1100px;margin:0 auto;padding:0 28px;display:flex;align-items:center;justify-content:space-between}
-        .logo{display:flex;align-items:center;gap:12px;font-size:1.3rem;font-weight:800;letter-spacing:-0.5px;text-decoration:none;color:var(--text);font-family:'Syne',sans-serif}
-        .logo-mark{width:36px;height:36px;background:var(--accent);border-radius:4px;display:grid;place-items:center;font-size:.75rem;font-weight:700;color:#fff}
-        .badge{display:inline-flex;align-items:center;gap:6px;font-family:monospace;font-size:.7rem;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--muted)}
-        .badge-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-        nav{display:flex;gap:28px}
-        nav a{font-size:.85rem;color:var(--muted);text-decoration:none;transition:color .2s}
-        nav a:hover{color:var(--accent)}
-        .hero{padding:90px 0 70px;text-align:center;animation:fadeUp .7s both}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
-        .hero-tag{display:inline-flex;align-items:center;gap:8px;font-family:monospace;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(229,9,20,.3);border-radius:4px;padding:5px 14px;margin-bottom:28px}
-        .hero h1{font-size:clamp(2.4rem,6vw,4.2rem);font-weight:800;line-height:1.05;letter-spacing:-2px;margin-bottom:22px}
-        .hero h1 span{color:var(--accent)}
-        .hero p{font-size:1.05rem;color:var(--muted);max-width:560px;margin:0 auto 40px;line-height:1.7}
-        .cta-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-        .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:8px;font-family:'Syne',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;text-decoration:none;transition:all .2s;border:none}
-        .btn-primary{background:var(--accent);color:#fff;box-shadow:0 0 24px rgba(229,9,20,.3)}
-        .btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(229,9,20,.5)}
-        .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
-        .btn-ghost:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-2px)}
-        .stats-row{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:60px 0 0;animation:fadeUp .9s .1s both}
-        .stat{flex:1;padding:24px 20px;text-align:center;border-right:1px solid var(--border);background:var(--surface)}
-        .stat:last-child{border-right:none}
-        .stat-val{font-size:1.8rem;font-weight:800;letter-spacing:-1px}
-        section{padding:80px 0}
-        .section-label{font-family:monospace;font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
-        .section-title{font-size:2rem;font-weight:800;letter-spacing:-1px;margin-bottom:40px}
-        .endpoints{display:flex;flex-direction:column;gap:18px}
-        .ep-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s,box-shadow .2s;animation:fadeUp .7s both}
-        .ep-card:nth-child(2){animation-delay:.1s}.ep-card:nth-child(3){animation-delay:.2s}.ep-card:nth-child(4){animation-delay:.3s}
-        .ep-card:hover{border-color:rgba(229,9,20,.3);box-shadow:0 0 32px rgba(229,9,20,.06)}
-        .ep-header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:18px 22px}
-        .method{font-family:monospace;font-size:.7rem;font-weight:700;padding:4px 10px;border-radius:5px;letter-spacing:.08em}
-        .get{background:rgba(0,255,179,.12);color:var(--green);border:1px solid rgba(0,255,179,.25)}
-        .ep-path{font-family:monospace;font-size:.88rem;flex:1;color:var(--text);word-break:break-all}
-        .ep-path em{color:var(--accent);font-style:normal}
-        .ep-type-badge{font-family:monospace;font-size:.65rem;padding:3px 9px;border-radius:20px;font-weight:700;letter-spacing:.05em}
-        .movie{background:rgba(229,9,20,.1);color:var(--accent);border:1px solid rgba(229,9,20,.2)}
-        .series{background:rgba(229,9,20,.1);color:#e87d7d;border:1px solid rgba(229,9,20,.2)}
-        .tv{background:rgba(245,166,35,.1);color:var(--orange);border:1px solid rgba(245,166,35,.2)}
-        .ep-desc{padding:0 22px 22px;color:var(--muted);font-size:.88rem;line-height:1.6}
-        .ep-body{padding:0 22px 22px;border-top:1px solid var(--border)}
-        .params-title{font-size:.75rem;font-family:monospace;color:var(--muted);margin:18px 0 10px;letter-spacing:.08em;text-transform:uppercase}
-        .params-table{width:100%;border-collapse:collapse;font-size:.82rem}
-        .params-table th{text-align:left;padding:8px 12px;background:rgba(255,255,255,.03);color:var(--muted);font-family:monospace;font-size:.7rem;font-weight:400;border-bottom:1px solid var(--border)}
-        .params-table td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top}
-        .params-table tr:last-child td{border-bottom:none}
-        .param-name{font-family:monospace;color:var(--accent);font-size:.8rem}
-        .param-type{font-family:monospace;color:var(--orange);font-size:.75rem}
-        .param-req{font-family:monospace;font-size:.7rem}
-        .req{color:var(--red)}.opt{color:var(--muted)}
-        .code-block{background:#060910;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:14px;font-size:.8rem}
-        .code-top{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02)}
-        .code-lang{font-family:monospace;font-size:.65rem;color:var(--muted)}
-        .copy-btn{font-family:monospace;font-size:.65rem;color:var(--muted);background:none;border:1px solid var(--border);border-radius:5px;padding:3px 9px;cursor:pointer;transition:all .2s}
-        .copy-btn:hover{color:var(--accent);border-color:var(--accent)}
-        .copy-btn.copied{color:var(--green);border-color:var(--green)}
-        pre{padding:16px 18px;overflow-x:auto;line-height:1.65;font-family:'Space Mono',Courier,monospace;color:#8da8c8;margin:0;white-space:pre-wrap}
-        .kw{color:#a97bf7}.str{color:var(--green)}.cm{color:#3d5268;font-style:italic}.fn{color:var(--accent)}.num{color:var(--orange)}
-        .demo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
-        .demo-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;animation:fadeUp .7s both;transition:border-color .25s,box-shadow .25s,transform .25s}
-        .demo-card:nth-child(2){animation-delay:.1s}.demo-card:nth-child(3){animation-delay:.2s}
-        .demo-card:hover{border-color:rgba(0,229,255,.35);box-shadow:0 8px 40px rgba(0,229,255,.08);transform:translateY(-3px)}
-        .demo-thumb{width:100%;aspect-ratio:16/9;position:relative;background:#07090f;overflow:hidden;cursor:pointer}
-        .demo-thumb .poster{width:100%;height:100%;object-fit:cover;transition:transform .4s,filter .4s;display:block}
-        .demo-card:hover .demo-thumb .poster{transform:scale(1.04);filter:brightness(.7)}
-        .demo-thumb .overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(8,11,16,.85) 0%,transparent 60%);transition:opacity .3s}
-        .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:50%;background:rgba(0,229,255,.18);border:2px solid rgba(0,229,255,.6);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;transition:all .25s;z-index:2}
-        .play-btn svg{width:20px;height:20px;fill:var(--accent);margin-left:3px}
-        .demo-card:hover .play-btn{transform:translate(-50%,-50%) scale(1.12);background:rgba(0,229,255,.28);box-shadow:0 0 32px rgba(0,229,255,.4)}
-        .demo-info{padding:16px 18px}
-        .demo-badge-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-        .demo-title{font-size:.95rem;font-weight:700;margin-bottom:4px}
-        .demo-sub{font-size:.78rem;color:var(--muted);margin-bottom:14px;font-family:monospace}
-        .demo-url{font-family:monospace;font-size:.68rem;color:var(--muted);word-break:break-all;margin-bottom:14px}
-        .demo-url span{color:var(--accent)}
-        .demo-actions{display:flex;gap:8px;flex-wrap:wrap}
-        .try-btn{display:inline-flex;align-items:center;gap:6px;font-family:monospace;font-size:.72rem;color:var(--accent);background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.2);border-radius:6px;padding:6px 12px;cursor:pointer;text-decoration:none;transition:all .2s}
-        .try-btn:hover{background:rgba(0,229,255,.15)}
-        .try-btn.ghost{color:var(--muted);background:transparent;border-color:var(--border)}
-        .try-btn.ghost:hover{color:var(--text);border-color:var(--muted)}
-        .schema-box{background:#060910;border:1px solid var(--border);border-radius:8px;overflow:hidden}
-        .schema-row{display:grid;grid-template-columns:200px 160px 1fr;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.04);font-size:.82rem}
-        .schema-row:last-child{border-bottom:none}
-        .schema-row.header{background:rgba(255,255,255,.03);color:var(--muted);font-family:monospace;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em}
-        .field-name{font-family:monospace;color:var(--text)}.field-type{font-family:monospace;color:var(--orange)}.field-desc{color:var(--muted)}
-        footer{border-top:1px solid var(--border);padding:40px 0;text-align:center;color:var(--muted);font-size:.82rem}
-        footer strong{color:var(--text)}
-        .url-builder{padding:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-top:28px}
-        @media(max-width:700px){.stats-row{flex-direction:column}.stat{border-right:none;border-bottom:1px solid var(--border)}.stat:last-child{border-bottom:none}nav{display:none}.schema-row{grid-template-columns:1fr 1fr}.schema-row .field-desc{display:none}}
-      `}</style>
+        body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,sans-serif;min-height:100vh}
+        .wrapper{max-width:800px;margin:0 auto;padding:0 24px}
 
-      <div className="bg-glow glow-1" />
-      <div className="bg-glow glow-2" />
+        header{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border)}
+        .header-inner{max-width:800px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+        .logo{font-size:18px;font-weight:800;text-decoration:none;color:var(--text);letter-spacing:-0.5px}
+        .logo-dot{color:var(--accent)}
+        nav{display:flex;gap:24px}
+        nav a{font-size:13px;color:var(--muted);text-decoration:none;font-weight:500;transition:color .15s}
+        nav a:hover{color:var(--text)}
+
+        .hero{padding:80px 0 60px;text-align:center}
+        .hero-tag{font-size:11px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-weight:700;display:inline-block;border:1px solid var(--border);padding:5px 14px;margin-bottom:32px}
+        .hero h1{font-size:clamp(2rem,5vw,3.5rem);font-weight:900;line-height:1.1;letter-spacing:-0.04em;margin-bottom:20px}
+        .hero hl .hl{color:var(--accent)}
+        .hero p{font-size:16px;color:var(--muted);max-width:480px;margin:0 auto 32px;line-height:1.7}
+        .hero-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+        .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 24px;font-size:14px;font-weight:700;text-decoration:none;transition:all .15s;cursor:pointer;border:none}
+        .btn-fill{background:var(--accent);color:var(--bg)}
+        .btn-fill:hover{background:var(--accent2)}
+        .btn-outline{border:1px solid var(--border);color:var(--text);background:none}
+        .btn-outline:hover{border-color:var(--accent)}
+        .btn-sm{padding:6px 14px;font-size:12px}
+
+        .stat-row{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--border);margin-top:60px}
+        .stat-item{padding:20px 16px;text-align:center;border-right:1px solid var(--border);background:var(--surface)}
+        .stat-item:last-child{border-right:none}
+        .stat-val{font-size:24px;font-weight:900;margin-bottom:4px}
+        .stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+
+        section{padding:80px 0}
+        .sec-tag{font-size:10px;color:var(--accent);letter-spacing:3px;text-transform:uppercase;font-weight:700;margin-bottom:12px}
+        .sec-title{font-size:28px;font-weight:900;letter-spacing:-0.03em;margin-bottom:10px}
+        .sec-desc{font-size:14px;color:var(--muted);margin-bottom:36px;line-height:1.6}
+
+        .ep-list{display:flex;flex-direction:column;gap:2px}
+        .ep-item{border:1px solid var(--border);background:var(--surface);transition:border-color .15s}
+        .ep-item:hover{border-color:#2a2a36}
+        .ep-top{display:flex;align-items:center;gap:12px;padding:18px 20px}
+        .ep-method{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:800;padding:3px 8px;color:var(--accent);border:1px solid var(--accent);opacity:.7}
+        .ep-path{font-family:'JetBrains Mono',monospace;font-size:13px;flex:1}
+        .ep-badge{font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 10px;border:1px solid var(--border);color:var(--muted)}
+        .ep-body{padding:0 20px 20px}
+        .ep-desc{font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5}
+
+        table{width:100%;border-collapse:collapse;margin-bottom:14px}
+        th{text-align:left;padding:5px 10px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;border-bottom:1px solid var(--border)}
+        td{padding:7px 10px;font-size:12px;border-bottom:1px solid rgba(255,255,255,.03)}
+        td:first-child{font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:11px}
+        td:nth-child(2){font-family:'JetBrains Mono',monospace;color:#d97706;font-size:10px}
+
+        .code-box{background:#020204;border:1px solid #16161e;overflow:hidden;margin-top:4px}
+        .code-head{display:flex;justify-content:space-between;padding:6px 12px;border-bottom:1px solid #16161e}
+        .code-head span{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:2px}
+        .code-head button{background:none;border:1px solid var(--border);color:var(--muted);padding:2px 10px;cursor:pointer;font-size:10px;font-family:'JetBrains Mono',monospace}
+        .code-head button:hover{color:var(--accent);border-color:var(--accent)}
+        pre{padding:14px 16px;margin:0;font-size:11px;font-family:'JetBrains Mono',monospace;color:#9898a8;line-height:1.6;overflow:auto;white-space:pre-wrap}
+
+        .demo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+        .card{border:1px solid var(--border);background:var(--surface);transition:border-color .15s;overflow:hidden}
+        .card:hover{border-color:#2a2a36}
+        .card-img{width:100%;aspect-ratio:2/3;background:#0a0a0f;position:relative;overflow:hidden;cursor:pointer}
+        .card-img img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+        .card:hover .card-img img{transform:scale(1.05)}
+        .card-play{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.4);opacity:0;transition:opacity .2s}
+        .card:hover .card-play{opacity:1}
+        .card-body{padding:14px}
+        .card-title{font-size:14px;font-weight:700;margin-bottom:4px}
+        .card-sub{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:10px}
+        .card-url{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:10px;word-break:break-all}
+        .card-url em{color:var(--accent);font-style:normal}
+        .card-links{display:flex;gap:8px}
+
+        .url-builder{border:1px solid var(--border);background:var(--surface);padding:24px;margin-top:36px}
+        .url-builder-grid{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+        .field{display:flex;flex-direction:column;gap:4px}
+        .field label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+        .field input,.field select{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;font-size:13px;font-family:'JetBrains Mono',monospace}
+        .field select{cursor:pointer}
+
+        .schema-box{border:1px solid var(--border);background:var(--surface)}
+        .schema-row{display:grid;grid-template-columns:140px 1fr 1fr;padding:8px 14px;border-bottom:1px solid rgba(255,255,255,.03);font-size:12px;align-items:center}
+        .schema-row:last-child{border-bottom:none}
+        .schema-row.head{background:rgba(255,255,255,.02);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+        .schema-name{font-weight:600}
+        .schema-path{font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:11px}
+        .schema-ex{font-family:'JetBrains Mono',monospace;color:var(--muted);font-size:10px;word-break:break-all}
+
+        footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;font-size:12px;color:var(--muted)}
+
+        @media(max-width:600px){
+          .stat-row{grid-template-columns:1fr 1fr}
+          .stat-item:nth-child(2){border-right:none}
+          nav{display:none}
+          .schema-row{grid-template-columns:1fr 1fr}
+          .schema-row .schema-ex{display:none}
+        }
+      `}</style>
 
       <header>
         <div className="header-inner">
-          <a className="logo" href="#">
-            <div className="logo-mark">SV</div>
-            StreamVault
-          </a>
+          <a className="logo" href="#"><span className="logo-dot">●</span> StreamVault</a>
           <nav>
-            <a href="#endpoints">Endpoints</a>
+            <a href="#endpoints">API</a>
             <a href="#demo">Demo</a>
-            <a href="#schema">Schema</a>
+            <a href="#builder">Builder</a>
           </nav>
-          <div className="badge">
-            <span className="badge-dot" />
-            API v1.0 · Online
-          </div>
         </div>
       </header>
 
       <div className="wrapper">
         <div className="hero">
-          <div className="hero-tag">
-            <svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="currentColor" /></svg>
-            Embed Player API — Español Latino
+          <div className="hero-tag">v1.0 · 4 proveedores · español latino</div>
+          <h1>Streaming<br /><span style={{color:"var(--accent)"}}>en una línea.</span></h1>
+          <p>Integrá películas, series y TV en vivo con un iframe. Reproductor Netflix-style, failover automático, sin API key.</p>
+          <div className="hero-actions">
+            <a href="#endpoints" className="btn btn-fill">Ver API</a>
+            <a href="/docs" className="btn btn-outline">Documentación</a>
           </div>
-          <h1>Reproduce cualquier<br /><span>contenido al instante</span></h1>
-          <p>Integrá el player de StreamVault en tu sitio con una sola línea. Películas, series, anime y canales TV — contenido en español latino, sin configuración compleja.</p>
-          <div className="cta-row">
-            <a href="#endpoints" className="btn btn-primary">
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" /></svg>
-              Ver Endpoints
-            </a>
-            <a href="#demo" className="btn btn-ghost">
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-              Ver Demo
-            </a>
-          </div>
-          <div className="stats-row">
-            <div className="stat"><div className="stat-val" style={{color:"var(--accent)"}}>Películas, Series, TV</div><div className="stat-lbl" style={{fontFamily:"monospace"}}>Tipos de contenido</div></div>
-            <div className="stat"><div className="stat-val" style={{color:"#e50914"}}>iframe</div><div className="stat-lbl" style={{fontFamily:"monospace"}}>Método de embed</div></div>
-            <div className="stat"><div className="stat-val" style={{color:"var(--green)"}}>100%</div><div className="stat-lbl" style={{fontFamily:"monospace"}}>Sin autenticación</div></div>
+          <div className="stat-row">
+            <div className="stat-item"><div className="stat-val" style={{color:"var(--accent)"}}>4</div><div className="stat-lbl">Proveedores</div></div>
+            <div className="stat-item"><div className="stat-val">iframe</div><div className="stat-lbl">Embed</div></div>
+            <div className="stat-item"><div className="stat-val" style={{color:"var(--accent)"}}>+4600</div><div className="stat-lbl">Canales TV</div></div>
+            <div className="stat-item"><div className="stat-val">0</div><div className="stat-lbl">API Key</div></div>
           </div>
         </div>
 
         <section id="endpoints">
-          <div className="section-label">// Referencia</div>
-          <div className="section-title">Endpoints del Player</div>
-          <div className="endpoints">
+          <div className="sec-tag">Endpoints</div>
+          <div className="sec-title">API de streaming</div>
+          <div className="sec-desc">Dos formas de consumir: iframe embed (HTML) o API JSON (REST).</div>
 
-            {/* MOVIE */}
-            <EndpointCard
-              method="GET"
-              path="/embed/movie/{tmdb_id}"
-              badge="🎬 Movie"
-              badgeClass="movie"
-              desc="Carga el player embed para una película usando su ID de TMDB. Contenido en español latino."
-              params={[{name:"tmdb_id",type:"integer",req:true,desc:"ID numérico de la película en TMDB"}]}
-              code={`<!-- Embed de película: TMDB ID 272 -->
-&lt;iframe
-  src="${BASE}/embed/movie/272"
-  width="100%"
-  height="500"
-  frameborder="0"
-  allowfullscreen
-  allow="autoplay; encrypted-media; fullscreen"
-&gt;&lt;/iframe&gt;`}
-            />
-
-            {/* SERIES */}
-            <EndpointCard
-              method="GET"
-              path="/embed/tv/{tmdb_id}?season={s}&episode={e}"
-              badge="📺 Series"
-              badgeClass="series"
-              desc="Carga el player embed para un episodio de serie."
-              params={[
-                {name:"tmdb_id",type:"integer",req:true,desc:"ID de la serie en TMDB"},
-                {name:"season",type:"integer",req:true,desc:"Número de temporada (empieza en 1)"},
-                {name:"episode",type:"integer",req:true,desc:"Número de episodio"},
-              ]}
-              code={`<!-- Serie: TMDB 1399 | T1 E1 -->
-&lt;iframe
-  src="${BASE}/embed/tv/1399?season=1&episode=1"
-  width="100%"
-  height="500"
-  frameborder="0"
-  allowfullscreen
-  allow="autoplay; encrypted-media; fullscreen"
-&gt;&lt;/iframe&gt;`}
-            />
-
-            {/* TV CHANNELS */}
-            <EndpointCard
-              method="GET"
-              path="/api/v1/tv/all?page=1&limit=200"
-              badge="📡 TV Channels"
-              badgeClass="tv"
-              desc="Lista todos los canales de TV disponibles. Devuelve array JSON con nombre, logo, categoría, país y URL del stream."
-              params={[
-                {name:"page",type:"integer",req:false,desc:"Número de página (default 1)"},
-                {name:"limit",type:"integer",req:false,desc:"Resultados por página (default 20, max 200)"},
-              ]}
-              code={`fetch("${BASE}/api/v1/tv/all?page=1&limit=200")
-  .then(r => r.json())
-  .then(data => console.log(data.results));
-// [{name, logo, country, category, url}, ...]`}
-            />
-
-            {/* LIVE TV EMBED */}
-            <EndpointCard
-              method="GET"
-              path="/embed/live/{slug}"
-              badge="📺 Live TV"
-              badgeClass="series"
-              desc="Player embed directo para canales de TV en vivo. Resuelve automáticamente el stream desde múltiples fuentes."
-              params={[{name:"slug",type:"string",req:true,desc:"Slug del canal (ej: caracol-tv, espn-premium, rcn-tv)"}]}
-              code={`<!-- Canal de TV en vivo -->
-&lt;iframe
-  src="${BASE}/embed/live/caracol-tv"
-  width="100%"
-  height="500"
-  frameborder="0"
-  allowfullscreen
-  allow="autoplay; encrypted-media; fullscreen"
-&gt;&lt;/iframe&gt;`}
-            />
-
-            {/* SEARCH TV */}
-            <EndpointCard
-              method="GET"
-              path="/api/v1/tv/all?search={query}"
-              badge="🔍 Search TV"
-              badgeClass="tv"
-              desc="Busca canales de TV en vivo consultando múltiples fuentes (TeleOnline + Animux) en tiempo real."
-              params={[{name:"search",type:"string",req:true,desc:"Término de búsqueda (ej: caracol, espn, rcn)"}]}
-              code={`fetch("${BASE}/api/v1/tv/all?search=caracol")
-  .then(r => r.json())
-  .then(data => console.log(data.results));`}
-            />
+          <div className="ep-list">
+            {[
+              {
+                method:"iframe", path:"/embed/movie/:id",
+                badge:"🎬 Película",
+                desc:"Reproductor embed para películas con TMDB ID.",
+                params:[["id","integer","TMDB ID de la película"]],
+                code:`<iframe src="${BASE}/embed/movie/272"\n  width="100%" height="500"\n  allowfullscreen\n  allow="autoplay; encrypted-media"></iframe>`
+              },
+              {
+                method:"iframe", path:"/embed/tv/:id",
+                badge:"📺 Serie",
+                desc:"Reproductor embed para series. Requiere season y episode.",
+                params:[["id","integer","TMDB ID"],["season","integer","Temporada"],["episode","integer","Episodio"]],
+                code:`<iframe src="${BASE}/embed/tv/1399?season=1&episode=1"\n  width="100%" height="500"\n  allowfullscreen\n  allow="autoplay; encrypted-media"></iframe>`
+              },
+              {
+                method:"GET", path:"/api/v1/embed-serve",
+                badge:"🔌 API JSON",
+                desc:"Devuelve metadatos TMDB + fuentes de streaming de todos los proveedores. Respuesta JSON.",
+                params:[["type","string","movie | tv"],["id","integer","TMDB ID"],["season","integer","(tv)"],["episode","integer","(tv)"]],
+                code:`curl "${BASE}/api/v1/embed-serve?type=movie&id=272"\n\n// Respuesta:\n{\n  "success": true,\n  "data": {\n    "title": "Batman Begins",\n    "year": "2005",\n    "sources": [\n      { "url": "...m3u8", "playbackType": "hls" },\n      { "url": "...mp4", "playbackType": "mp4" }\n    ]\n  }\n}`
+              },
+              {
+                method:"iframe", path:"/embed/live/:slug",
+                badge:"📡 TV en vivo",
+                desc:"Player embed para canales de TV en vivo. Streams HLS directos.",
+                params:[["slug","string","Slug del canal"]],
+                code:`<iframe src="${BASE}/embed/live/caracol-tv"\n  width="100%" height="500"\n  allowfullscreen\n  allow="autoplay; encrypted-media"></iframe>`
+              },
+              {
+                method:"GET", path:"/api/v1/tv/all",
+                badge:"📋 Canales",
+                desc:"Lista paginada de canales de TV. Buscá por nombre con ?search=.",
+                params:[["search","string","Filtrar por nombre"],["page","integer","Página"],["limit","integer","Por página"]],
+                code:`curl "${BASE}/api/v1/tv/all?search=caracol&limit=10"\n\n// Respuesta:\n{\n  "success": true,\n  "results": [\n    {\n      "name": "Caracol TV",\n      "slug": "caracol-tv",\n      "country": "Colombia",\n      "url": "...m3u8"\n    }\n  ]\n}`
+              },
+            ].map((ep,i) => (
+              <div className="ep-item" key={i}>
+                <div className="ep-top">
+                  <span className="ep-method">{ep.method}</span>
+                  <span className="ep-path">{ep.path}</span>
+                  <span className="ep-badge">{ep.badge}</span>
+                </div>
+                <div className="ep-body">
+                  <div className="ep-desc">{ep.desc}</div>
+                  {ep.params.length > 0 && (
+                    <table>
+                      <thead><tr><th>Param</th><th>Tipo</th><th>Desc</th></tr></thead>
+                      <tbody>
+                        {ep.params.map(([n,t,d]) => (
+                          <tr key={n}><td>{n}</td><td>{t}</td><td style={{fontSize:11}}>{d}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                  <div className="code-box">
+                    <div className="code-head">
+                      <span>{ep.method === "GET" ? "cURL" : "HTML"}</span>
+                      <button onClick={(e) => { navigator.clipboard.writeText(ep.code.replace(/<[^>]*>/g,'')); const b=e.currentTarget; b.textContent='Copiado'; setTimeout(()=>b.textContent='Copiar',1200); }}>Copiar</button>
+                    </div>
+                    <pre>{ep.code}</pre>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* DEMO */}
         <section id="demo">
-          <div className="section-label">// Live Demo</div>
-          <div className="section-title">Ejemplos en vivo</div>
+          <div className="sec-tag">Demo</div>
+          <div className="sec-title">Probá en vivo</div>
+          <div className="sec-desc">Clickeá una película o serie para ver el player en acción.</div>
+
           <div className="demo-grid">
             {[
-              { type:"movie", id:272, title:"Batman Begins", poster:"https://image.tmdb.org/t/p/w500/6yMWU1vWkOBbNRIwOxhetd2aHhO.jpg", badge:"🎬 Movie", year:"2005" },
-              { type:"tv", id:1399, season:1, episode:1, title:"Game of Thrones", poster:"https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg", badge:"📺 Series", year:"2011 · T1E1" },
-              { type:"tv", id:37854, season:1, episode:1, title:"One Piece", poster:"https://image.tmdb.org/t/p/w500/2uGjavvyQkTK26u2KGW6z2yDg9o.jpg", badge:"⛩️ Anime", year:"1999 · T1E1" },
-            ].map((item, i) => {
-              const demoUrl = item.type === "movie"
+              { type:"movie", id:272, title:"Batman Begins", sub:"2005 · Película", poster:"https://image.tmdb.org/t/p/w500/6yMWU1vWkOBbNRIwOxhetd2aHhO.jpg" },
+              { type:"tv", id:1399, s:1, e:1, title:"Game of Thrones", sub:"2011 · T1E1", poster:"https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg" },
+              { type:"tv", id:37854, s:1, e:1, title:"One Piece", sub:"1999 · T1E1", poster:"https://image.tmdb.org/t/p/w500/2uGjavvyQkTK26u2KGW6z2yDg9o.jpg" },
+            ].map((item,i) => {
+              const url = item.type === "movie"
                 ? `${BASE}/embed/movie/${item.id}`
-                : `${BASE}/embed/tv/${item.id}?season=${item.season}&episode=${item.episode}`;
+                : `${BASE}/embed/tv/${item.id}?season=${item.s}&episode=${item.e}`;
               return (
-                <div className="demo-card" key={i}>
-                  <div className="demo-thumb" style={{ cursor: "pointer" }} onClick={() => window.open(demoUrl, "_blank")}>
-                    <img className="poster" src={item.poster} alt={item.title} onError={(e) => { (e.target as HTMLImageElement).style.opacity = ".3"; }} />
-                    <div className="overlay" />
-                    <div className="play-btn">
-                      <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                <div className="card" key={i}>
+                  <div className="card-img" onClick={() => window.open(url, "_blank")}>
+                    <img src={item.poster} alt={item.title} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    <div className="card-play">
+                      <svg width="40" height="40" viewBox="0 0 24 24" fill="white"><polygon points="6 2 20 12 6 22"/></svg>
                     </div>
                   </div>
-                  <div className="demo-info">
-                    <div className="demo-badge-row">
-                      <span className={`ep-type-badge ${item.type === "movie" ? "movie" : "series"}`}>{item.badge}</span>
-                      <span style={{fontFamily:"monospace",fontSize:".65rem",color:"var(--muted)"}}>{item.year}</span>
+                  <div className="card-body">
+                    <div className="card-title">{item.title}</div>
+                    <div className="card-sub">{item.sub}</div>
+                    <div className="card-url">
+                      <em>{item.type === "movie" ? `/embed/movie/${item.id}` : `/embed/tv/${item.id}`}</em>
                     </div>
-                    <div className="demo-title">{item.title}</div>
-                    <div className="demo-url">streamvault-vj0p.onrender.com<span>{item.type === "movie" ? `/embed/movie/${item.id}` : `/embed/tv/${item.id}`}</span></div>
-                    <div className="demo-actions">
-                      <a className="try-btn" href={demoUrl} target="_blank">▶ Reproducir aquí</a>
-                      <a className="try-btn ghost" href={demoUrl} target="_blank">↗</a>
+                    <div className="card-links">
+                      <a className="btn btn-fill btn-sm" href={url} target="_blank">▶ Abrir</a>
+                      <button className="btn btn-outline btn-sm" onClick={() => navigator.clipboard.writeText(url)}>📋</button>
                     </div>
                   </div>
                 </div>
@@ -293,126 +249,75 @@ export default function Home() {
           </div>
         </section>
 
-        {/* URL BUILDER */}
-        <section>
-          <div className="section-label">// Generador de URL</div>
+        <section id="builder">
+          <div className="sec-tag">Builder</div>
+          <div className="sec-title">Armá tu URL</div>
           <div className="url-builder">
-            <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:16,alignItems:"flex-end"}}>
-              <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                <label style={{fontFamily:"monospace",fontSize:".7rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:".08em"}}>Tipo</label>
-                <select id="gen-type" style={{background:"#060910",border:"1px solid var(--border)",color:"var(--text)",fontFamily:"monospace",fontSize:".82rem",padding:"9px 12px",borderRadius:"7px",cursor:"pointer"}}>
-                  <option value="movie">🎬 Película</option>
-                  <option value="tv">📺 Serie</option>
+            <div className="url-builder-grid">
+              <div className="field">
+                <label>Tipo</label>
+                <select id="gen-type" defaultValue="movie">
+                  <option value="movie">Película</option>
+                  <option value="tv">Serie</option>
                 </select>
               </div>
-              <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                <label style={{fontFamily:"monospace",fontSize:".7rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:".08em"}}>TMDB ID</label>
-                <input id="gen-id" type="number" placeholder="ej. 272" defaultValue="272" style={{background:"#060910",border:"1px solid var(--border)",color:"var(--text)",fontFamily:"monospace",fontSize:".82rem",padding:"9px 12px",borderRadius:"7px",width:160}} />
+              <div className="field">
+                <label>TMDB ID</label>
+                <input id="gen-id" type="number" defaultValue="272" />
               </div>
               <div id="gen-tv" style={{display:"none",gap:12}}>
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                  <label style={{fontFamily:"monospace",fontSize:".7rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:".08em"}}>Season</label>
-                  <input id="gen-s" type="number" defaultValue="1" min="1" style={{background:"#060910",border:"1px solid var(--border)",color:"var(--text)",fontFamily:"monospace",fontSize:".82rem",padding:"9px 12px",borderRadius:"7px",width:110}} />
-                </div>
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                  <label style={{fontFamily:"monospace",fontSize:".7rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:".08em"}}>Episode</label>
-                  <input id="gen-e" type="number" defaultValue="1" min="1" style={{background:"#060910",border:"1px solid var(--border)",color:"var(--text)",fontFamily:"monospace",fontSize:".82rem",padding:"9px 12px",borderRadius:"7px",width:110}} />
-                </div>
+                <div className="field"><label>Temp</label><input id="gen-s" type="number" defaultValue="1" /></div>
+                <div className="field"><label>Ep</label><input id="gen-e" type="number" defaultValue="1" /></div>
               </div>
             </div>
-            <div className="code-block" style={{marginTop:0}}>
-              <div className="code-top"><span className="code-lang">URL GENERADA</span><button className="copy-btn" id="gen-copy" onClick={() => { const el = document.getElementById("gen-output"); if (el) navigator.clipboard.writeText(el.textContent || "").then(() => { const b = document.getElementById("gen-copy"); if (b) { b.textContent = "✓ Copiado"; b.classList.add("copied"); setTimeout(() => { b.textContent = "Copiar"; b.classList.remove("copied"); }, 2000); } }); }}>Copiar</button></div>
+            <div className="code-box">
+              <div className="code-head">
+                <span>URL</span>
+                <button id="gen-copy" onClick={() => { const u = document.getElementById("gen-output")?.textContent; if(u){ navigator.clipboard.writeText(u); const b=document.getElementById("gen-copy"); if(b){b.textContent='Copiado';setTimeout(()=>b.textContent='Copiar',1200);} } }}>Copiar</button>
+              </div>
               <pre id="gen-output" style={{color:"var(--accent)"}}>{BASE}/embed/movie/272</pre>
             </div>
-            <div style={{display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}}>
-              <a id="gen-link" href={`${BASE}/embed/movie/272`} target="_blank" className="try-btn">▶ Probar aquí</a>
+            <div style={{marginTop:10}}>
+              <a id="gen-link" href={`${BASE}/embed/movie/272`} target="_blank" className="btn btn-fill btn-sm">▶ Probar</a>
             </div>
           </div>
         </section>
 
-        {/* SCHEMA */}
-        <section id="schema">
-          <div className="section-label">// Estructura de URL</div>
-          <div className="section-title">Formatos de Embed</div>
-          <div className="schema-box">
-            <div className="schema-row header"><div>Tipo</div><div>Patrón URL</div><div>Ejemplo</div></div>
-            <div className="schema-row"><div className="field-name">🎬 Película</div><div className="field-type">/movie/{"{id}"}</div><div className="field-desc">streamvault-vj0p.onrender.com/embed/movie/272</div></div>
-            <div className="schema-row"><div className="field-name">📺 Serie</div><div className="field-type">/tv/{"{id}"}?season=&episode=</div><div className="field-desc">streamvault-vj0p.onrender.com/embed/tv/1399?season=1&episode=1</div></div>
-            <div className="schema-row"><div className="field-name">📡 Canales TV</div><div className="field-type">/api/v1/tv/all</div><div className="field-desc">streamvault-vj0p.onrender.com/api/v1/tv/all?page=1&limit=20</div></div>
-            <div className="schema-row"><div className="field-name">📺 Live TV</div><div className="field-type">/embed/live/{"{slug}"}</div><div className="field-desc">streamvault-vj0p.onrender.com/embed/live/caracol-tv</div></div>
-            <div className="schema-row"><div className="field-name">🔍 Buscar TV</div><div className="field-type">/api/v1/tv/all?search=</div><div className="field-desc">streamvault-vj0p.onrender.com/api/v1/tv/all?search=espn</div></div>
+        <section>
+          <div className="sec-tag">Schema</div>
+          <div className="sec-title">URLs de referencia</div>
+          <div className="schema-box" style={{marginTop:16}}>
+            <div className="schema-row head"><div>Tipo</div><div>Patrón</div><div>Ejemplo</div></div>
+            <div className="schema-row"><div className="schema-name">Película</div><div className="schema-path">/embed/movie/:id</div><div className="schema-ex">{BASE}/embed/movie/272</div></div>
+            <div className="schema-row"><div className="schema-name">Serie</div><div className="schema-path">/embed/tv/:id</div><div className="schema-ex">{BASE}/embed/tv/1399?season=1&episode=1</div></div>
+            <div className="schema-row"><div className="schema-name">TV en vivo</div><div className="schema-path">/embed/live/:slug</div><div className="schema-ex">{BASE}/embed/live/caracol-tv</div></div>
+            <div className="schema-row"><div className="schema-name">API JSON</div><div className="schema-path">/api/v1/embed-serve</div><div className="schema-ex">{BASE}/api/v1/embed-serve?type=movie&id=272</div></div>
+            <div className="schema-row"><div className="schema-name">Canales</div><div className="schema-path">/api/v1/tv/all</div><div className="schema-ex">{BASE}/api/v1/tv/all?search=espn</div></div>
+            <div className="schema-row"><div className="schema-name">Docs</div><div className="schema-path">/docs</div><div className="schema-ex">{BASE}/docs</div></div>
           </div>
         </section>
 
         <footer>
-          <div className="wrapper">
-            <strong>StreamVault</strong> · Embed Player API v1.0 · Contenido en español latino · Sin API key requerida
-          </div>
+          StreamVault · 4 proveedores activos · Contenido en español latino · Sin API key
         </footer>
       </div>
 
       <script dangerouslySetInnerHTML={{ __html: `
         (function(){
-          var type=document.getElementById('gen-type');
-          var tv=document.getElementById('gen-tv');
-          var out=document.getElementById('gen-output');
-          var link=document.getElementById('gen-link');
-          var id=document.getElementById('gen-id');
-          var s=document.getElementById('gen-s');
-          var e=document.getElementById('gen-e');
-          var BASE='${BASE}';
-          function update(){
-            var t=type.value;
-            tv.style.display=t==='tv'?'flex':'none';
-            var url=t==='movie'?BASE+'/embed/movie/'+(id.value||'272'):BASE+'/embed/tv/'+(id.value||'1399')+'?season='+(s.value||1)+'&episode='+(e.value||1);
-            out.textContent=url;
-            link.href=url;
+          var t=document.getElementById('gen-type'),tv=document.getElementById('gen-tv'),
+              o=document.getElementById('gen-output'),l=document.getElementById('gen-link'),
+              id=document.getElementById('gen-id'),s=document.getElementById('gen-s'),
+              e=document.getElementById('gen-e'),B='${BASE}';
+          function u(){
+            tv.style.display=t.value==='tv'?'flex':'none';
+            var url=t.value==='movie'
+              ?B+'/embed/movie/'+(id.value||'272')
+              :B+'/embed/tv/'+(id.value||'1399')+'?season='+(s.value||1)+'&episode='+(e.value||1);
+            o.textContent=url;l.href=url;
           }
-          type.onchange=update;id.oninput=update;s.oninput=update;e.oninput=update;
+          t.onchange=u;id.oninput=u;s.oninput=u;e.oninput=u;
         })();
       `}} />
     </>
-  );
-}
-
-function EndpointCard({ method, path, badge, badgeClass, desc, params, code }: {
-  method: string; path: string; badge: string; badgeClass: string;
-  desc: string; params: { name: string; type: string; req: boolean; desc: string }[];
-  code: string;
-}) {
-  return (
-    <div className="ep-card">
-      <div className="ep-header">
-        <span className="method get">{method}</span>
-        <span className="ep-path">{path.split(/\{([^}]+)\}/g).map((part, i) =>
-          i % 2 === 1 ? <em key={i}>{`{${part}}`}</em> : part
-        )}</span>
-        <span className={`ep-type-badge ${badgeClass}`}>{badge}</span>
-      </div>
-      <div className="ep-desc">{desc}</div>
-      <div className="ep-body">
-        <div className="params-title">Parameters</div>
-        <table className="params-table">
-          <tbody>
-            <tr><th>Parámetro</th><th>Tipo</th><th>Req.</th><th>Descripción</th></tr>
-            {params.map(p => (
-              <tr key={p.name}>
-                <td><span className="param-name">{p.name}</span></td>
-                <td><span className="param-type">{p.type}</span></td>
-                <td><span className={`param-req ${p.req ? "req" : "opt"}`}>{p.req ? "required" : "optional"}</span></td>
-                <td>{p.desc}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="code-block">
-          <div className="code-top">
-            <span className="code-lang">EJEMPLO DE USO</span>
-            <button className="copy-btn" onClick={() => navigator.clipboard.writeText(code.replace(/<[^>]*>/g, ""))}>Copiar</button>
-          </div>
-          <pre dangerouslySetInnerHTML={{ __html: code }} />
-        </div>
-      </div>
-    </div>
   );
 }
