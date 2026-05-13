@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import NetflixPlayer from "@/components/NetflixPlayer";
 import { Loader2, AlertCircle } from "lucide-react";
+import { resolveEmbed69Client } from "@/lib/client-jwt";
 
 interface EmbedSource {
   url: string;
@@ -25,6 +26,12 @@ interface EmbedData {
   sources: EmbedSource[];
 }
 
+function resolvePlaybackType(url: string): "hls" | "mp4" | "iframe" {
+  if (/\.m3u8(?:[?#].*)?$/i.test(url) || url.includes(".m3u8")) return "hls";
+  if (/\.mp4(?:[?#].*)?$/i.test(url) || url.includes(".mp4")) return "mp4";
+  return "iframe";
+}
+
 function EmbedContent() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -37,6 +44,7 @@ function EmbedContent() {
   const [data, setData] = useState<EmbedData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resolvingJwt, setResolvingJwt] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,9 +65,38 @@ function EmbedContent() {
           return;
         }
 
-        setData(json.data);
+        let sources: EmbedSource[] = json.data.sources || [];
 
-        if (!json.data.sources || json.data.sources.length === 0) {
+        // Client-side JWT resolution for embed69 URLs
+        const embed69Sources = sources.filter((s: EmbedSource) => s.url.includes("embed69.org"));
+        if (embed69Sources.length > 0) {
+          setResolvingJwt(true);
+          const jwtResults: EmbedSource[] = [];
+          let jwtCount = 0;
+
+          await Promise.all(embed69Sources.map(async (src: EmbedSource) => {
+            const resolved = await resolveEmbed69Client(src.url);
+            for (const link of resolved) {
+              jwtCount++;
+              jwtResults.push({
+                url: link,
+                name: `JWT ${jwtCount}`,
+                lang: src.lang || "Latino",
+                playbackType: resolvePlaybackType(link),
+              });
+            }
+          }));
+
+          if (jwtResults.length > 0) {
+            // Add resolved JWT streams at the beginning
+            sources = [...jwtResults, ...sources];
+          }
+          setResolvingJwt(false);
+        }
+
+        setData({ ...json.data, sources });
+
+        if (sources.length === 0) {
           setError("No se encontraron fuentes disponibles para este contenido.");
         }
       } catch (e: any) {
@@ -74,11 +111,13 @@ function EmbedContent() {
     return () => { cancelled = true; };
   }, [id, type, season, episode]);
 
-  if (loading) {
+  if (loading || resolvingJwt) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-black">
         <Loader2 className="animate-spin text-yellow-500 mb-4" size={48} />
-        <p className="text-gray-500 font-medium">Buscando fuentes...</p>
+        <p className="text-gray-500 font-medium">
+          {resolvingJwt ? "Resolviendo streams JWT..." : "Buscando fuentes..."}
+        </p>
       </div>
     );
   }
