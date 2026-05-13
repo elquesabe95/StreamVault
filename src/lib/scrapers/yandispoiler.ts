@@ -47,7 +47,7 @@ export async function getYandiSources(pageUrl: string): Promise<YandiSource[]> {
   while ((match = iframeRegex.exec(html)) !== null) {
     let url = match[1];
     if (url.startsWith("//")) url = "https:" + url;
-    if (url.includes('.js') || url.includes('cloudflare') || url.includes('google') || url.includes('.css')) continue;
+    if (url.includes('.js') || url.includes('cloudflare') || url.includes('google') || url.includes('.css') || url.includes('youtube.com') || url.includes('youtu.be') || url.includes('short.icu')) continue;
     
     sources.push({ server: "Yandi", url, lang: "latino" });
   }

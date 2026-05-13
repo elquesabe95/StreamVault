@@ -76,7 +76,7 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
     if (url.startsWith("//")) url = "https:" + url;
     
     // Skip non-video resources
-    if (url.includes('.js') || url.includes('cloudflare') || url.includes('google') || url.includes('.css')) continue;
+    if (url.includes('.js') || url.includes('cloudflare') || url.includes('google') || url.includes('.css') || url.includes('youtube.com') || url.includes('youtu.be')) continue;
     
     sources.push({
       server: serverNames[index] || `Servidor ${index + 1}`,
@@ -91,7 +91,7 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
   while ((iMatch = iframeRegex.exec(html)) !== null) {
     let url = iMatch[1];
     if (url.startsWith("//")) url = "https:" + url;
-    if (url.includes('.js') || url.includes('cloudflare') || url.includes('google')) continue;
+    if (url.includes('.js') || url.includes('cloudflare') || url.includes('google') || url.includes('youtube.com') || url.includes('youtu.be')) continue;
     
     // If it's a known multi-server host, we'll handle it in the resolver
     sources.push({
@@ -155,7 +155,7 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
   }
   
   // Filter out known dead hosts
-  const deadHosts = /minochinos|earnvids/i;
+  const deadHosts = /minochinos|earnvids|short\.icu/i;
   return sources.filter(s => !deadHosts.test(s.url));
 }
 

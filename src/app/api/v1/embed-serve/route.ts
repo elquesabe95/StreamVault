@@ -23,7 +23,7 @@ async function resolveDeep(url: string): Promise<string[]> {
   // Direct iframe hosts — pass through without resolution
   const directIframe = /voe\.sx|hglink\.to|bysedikamoum/.test(url);
   // Skip dead hosts  
-  if (/minochinos/.test(url)) return [];
+  if (/minochinos|short\.icu/i.test(url)) return [];
   if (directIframe) return [url];
   
   const first = await resolveStream(url).catch(() => url);
@@ -242,7 +242,7 @@ export async function GET(req: NextRequest) {
 
     // Run all providers in parallel with individual timeouts
     const allResults = await Promise.allSettled(
-      providers.map(p => withTimeout(p.fn().catch(() => []), 12000, p.name))
+      providers.map(p => withTimeout(p.fn().catch(() => []), 10000, p.name))
     );
 
     for (const r of allResults) {
@@ -270,8 +270,8 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Safety net: strip dead hosts
-    const safeSources = finalSources.filter(s => !/minochinos|earnvids/i.test(s.url));
+    // Safety net: strip dead hosts and YouTube embeds
+    const safeSources = finalSources.filter(s => !/minochinos|earnvids|short\.icu/i.test(s.url) && !/youtube\.com|youtu\.be/i.test(s.url));
 
     console.log(`[EmbedServe] ${metadata.title} — ${safeSources.length} sources in ${Date.now() - start}ms`);
 
