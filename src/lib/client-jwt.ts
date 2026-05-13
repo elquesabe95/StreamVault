@@ -73,6 +73,7 @@ function extractJwtFromHtml(html: string): string[] {
 }
 
 const CORS_PROXIES = [
+  "https://api.codetabs.com/v1/proxy?quest=",
   "https://corsproxy.io/?",
   "https://api.allorigins.win/raw?url=",
 ];
@@ -82,22 +83,32 @@ export async function resolveEmbed69Client(url: string): Promise<string[]> {
   
   for (const proxy of CORS_PROXIES) {
     try {
+      console.log(`[JWT-Client] Trying ${proxy.split("?")[0]}...`);
       const res = await fetch(`${proxy}${encoded}`, {
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(8000),
       });
-      if (!res.ok) continue;
+      if (!res.ok) {
+        console.warn(`[JWT-Client] ${proxy.split("?")[0]} status ${res.status}`);
+        continue;
+      }
       const html = await res.text();
-      if (html.length < 1000) continue; // too short, probably blocked
+      console.log(`[JWT-Client] ${proxy.split("?")[0]} returned ${html.length} bytes`);
+      if (html.length < 1000) {
+        console.warn(`[JWT-Client] Response too short (${html.length}b), likely blocked`);
+        continue;
+      }
       
       const links = extractJwtFromHtml(html);
       if (links.length > 0) {
         console.log(`[JWT-Client] Resolved ${links.length} streams from ${url}`);
         return links;
       }
-    } catch {
-      // Proxy failed, try next
+      console.warn(`[JWT-Client] No JWT found in ${html.length}b response`);
+    } catch (e) {
+      console.warn(`[JWT-Client] ${proxy.split("?")[0]} failed:`, (e as Error).message);
     }
   }
   
+  console.warn(`[JWT-Client] All proxies failed for ${url}`);
   return [];
 }
