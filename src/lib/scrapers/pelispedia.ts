@@ -11,6 +11,19 @@ export interface PelisSource {
   lang: "latino" | "spanish" | "subbed";
 }
 
+function decodeJwtLink(token: string): string | null {
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = Buffer.from(normalized, "base64").toString("utf8");
+    const data = JSON.parse(decoded);
+    return typeof data.link === "string" ? data.link : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function searchPelispedia(query: string) {
   // Use the correct search pattern: /search?s=query
   const searchUrl = `${BASE_URL}/search?s=${encodeURIComponent(query)}`;
@@ -86,6 +99,59 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
       url: url,
       lang: "latino"
     });
+  }
+
+  // 4. Extract JWT dataLink directly from the page (bypasses embed69)
+  const dlRegex = /(?:let|const|var)\s+dataLink\s*=\s*(\[[\s\S]*?\]|\{[\s\S]*\});/;
+  const dataLinkMatch = dlRegex.exec(html);
+  if (dataLinkMatch) {
+    try {
+      const parsed = JSON.parse(dataLinkMatch[1]);
+      let embeds: any[] = [];
+      if (parsed.data?.embeds) {
+        embeds = parsed.data.embeds;
+      } else if (Array.isArray(parsed)) {
+        for (const file of parsed) {
+          embeds.push(...(file.sortedEmbeds || file.embeds || []));
+        }
+      }
+      for (const embed of embeds) {
+        const link = decodeJwtLink(embed.link || embed.url || "");
+        if (link) {
+          sources.push({ server: "JWT", url: link, lang: "latino" });
+        }
+      }
+    } catch {}
+  } else {
+    // Try bracket extraction
+    const idx = html.indexOf('dataLink');
+    if (idx >= 0) {
+      const bracketStart = html.indexOf('[', idx);
+      if (bracketStart >= 0) {
+        let depth = 0, endIdx = -1;
+        for (let i = bracketStart; i < html.length; i++) {
+          if (html[i] === '[') depth++;
+          else if (html[i] === ']') depth--;
+          if (depth === 0) { endIdx = i; break; }
+        }
+        if (endIdx >= 0) {
+          try {
+            const bracketData = JSON.parse(html.substring(bracketStart, endIdx + 1));
+            const jwtLinks: string[] = [];
+            for (const file of bracketData) {
+              const embeds = file.sortedEmbeds || file.embeds || [];
+              for (const embed of embeds) {
+                const link = decodeJwtLink(embed.link || embed.url || "");
+                if (link) jwtLinks.push(link);
+              }
+            }
+            for (const link of jwtLinks) {
+              sources.push({ server: "JWT-Stream", url: link, lang: "latino" });
+            }
+          } catch {}
+        }
+      }
+    }
   }
   
   // Filter out known dead hosts
