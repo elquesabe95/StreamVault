@@ -7,6 +7,9 @@ import { getMovieDetails, getTvDetails, tmdbImage } from "@/lib/tmdb";
 import { searchPelispedia, getPelispediaSources, getPelispediaEpisodeUrl } from "@/lib/scrapers/pelispedia";
 import { searchCuevana, getCuevanaSources, getCuevanaEpisodeUrl } from "@/lib/scrapers/cuevana";
 import { searchCinecalidad, getCinecalidadSources, getCinecalidadEpisodeUrl } from "@/lib/scrapers/cinecalidad";
+import { searchGnula, getGnulaSources, getGnulaEpisodeUrl } from "@/lib/scrapers/gnula";
+import { searchYandi, getYandiSources, getYandiEpisodeUrl } from "@/lib/scrapers/yandispoiler";
+import { searchJuanita, getJuanitaSources, getJuanitaEpisodeUrl } from "@/lib/scrapers/pelisjuanita";
 import { resolveStream } from "@/lib/scrapers/resolver";
 
 type PlaybackType = "hls" | "mp4" | "iframe";
@@ -167,6 +170,63 @@ export async function GET(req: NextRequest) {
           }
           if (!targetUrl) return [];
           const sources = await getPelispediaSources(targetUrl);
+          return sources.map((s: any) => ({ ...s, lang: "Latino" }));
+        },
+      },
+      {
+        name: "Gnula",
+        fn: async () => {
+          const res = await searchGnula(query);
+          let match = findExactMatch(res);
+          let targetUrl = match?.url || "";
+          if (!match) {
+            targetUrl = type === "movie"
+              ? `https://ww3.gnulahd.nu/pelicula/${slugTitle}/`
+              : `https://ww3.gnulahd.nu/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
+          } else if (type !== "movie") {
+            const epUrl = await getGnulaEpisodeUrl(match.url, season, episode);
+            if (epUrl) targetUrl = epUrl; else return [];
+          }
+          if (!targetUrl) return [];
+          const sources = await getGnulaSources(targetUrl);
+          return sources.map((s: any) => ({ ...s, lang: "Latino" }));
+        },
+      },
+      {
+        name: "YandiSpoiler",
+        fn: async () => {
+          const res = await searchYandi(query);
+          let match = findExactMatch(res);
+          let targetUrl = match?.url || "";
+          if (!match) {
+            targetUrl = type === "movie"
+              ? `https://yandispoiler.net/pelicula/${slugTitle}/`
+              : `https://yandispoiler.net/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
+          } else if (type !== "movie") {
+            const epUrl = await getYandiEpisodeUrl(match.url, season, episode);
+            if (epUrl) targetUrl = epUrl; else return [];
+          }
+          if (!targetUrl) return [];
+          const sources = await getYandiSources(targetUrl);
+          return sources.map((s: any) => ({ ...s, lang: "Latino" }));
+        },
+      },
+      {
+        name: "PelisJuanita",
+        fn: async () => {
+          const res = await searchJuanita(query);
+          let match = findExactMatch(res);
+          let targetUrl = match?.url || "";
+          if (!match) {
+            targetUrl = type === "movie"
+              ? `https://pelisjuanita.com/pelicula/${slugTitle}/`
+              : `https://pelisjuanita.com/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
+          } else if (type !== "movie") {
+            const epUrl = await getJuanitaEpisodeUrl(match.url, season, episode);
+            if (epUrl) targetUrl = epUrl; else return [];
+          }
+          if (!targetUrl) return [];
+          const sources = await getJuanitaSources(targetUrl);
           return sources.map((s: any) => ({ ...s, lang: "Latino" }));
         },
       },
