@@ -39,7 +39,7 @@ El player esta en `/player` y se puede embeber como iframe en tu sitio:
 ### Para Series/Anime:
 ```html
 <iframe 
-  src="https://tu-app.onrender.com/player?type=tv&id=37854&season=1&episode=1"
+  src="https://stream-vault-two-phi.vercel.app/player?type=tv&id=37854&season=1&episode=1"
   style="width:100%;aspect-ratio:16/9;border:none;"
   allowfullscreen
   allow="autoplay; encrypted-media; fullscreen"
@@ -49,7 +49,7 @@ El player esta en `/player` y se puede embeber como iframe en tu sitio:
 ### Para Peliculas:
 ```html
 <iframe 
-  src="https://tu-app.onrender.com/player?type=movie&id=550"
+  src="https://stream-vault-two-phi.vercel.app/player?type=movie&id=550"
   style="width:100%;aspect-ratio:16/9;border:none;"
   allowfullscreen
   allow="autoplay; encrypted-media; fullscreen"

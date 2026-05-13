@@ -1,7 +1,7 @@
 "use client";
 
 export default function Home() {
-  const BASE = "https://streamvault-vj0p.onrender.com";
+  const BASE = "https://stream-vault-two-phi.vercel.app";
 
   return (
     <>

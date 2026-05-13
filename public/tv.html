@@ -176,7 +176,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.7/hls.min.js"></script>
 <script>
-var apiBase = 'https://streamvault-vj0p.onrender.com';
+var apiBase = 'https://stream-vault-two-phi.vercel.app';
 var allChannels=[], activeIdx=-1, activeCategory='Todos', hlsInstance=null, progressAnim=null;
 var elPH=document.getElementById('placeholder'), elHLS=document.getElementById('hlsPlayer'), elEmbed=document.getElementById('embedFrame'), elLoading=document.getElementById('playerLoading'), elError=document.getElementById('playerError'), elErrD=document.getElementById('errDetail'), elLoadMsg=document.getElementById('loadMsg'), elProg=document.getElementById('progressFill'), elBar=document.getElementById('channelBar');
 
@@ -193,7 +193,7 @@ function playHls(url){ killHls(); showState('loading'); elLoadMsg.textContent='C
     elHLS.addEventListener('error',function(){ showState('error'); elErrD.textContent='Stream no disponible'; },{once:true});
   } else { showState('error'); elErrD.textContent='Navegador no compatible con HLS'; }}
 
-function playEmbed(slug){ killHls(); elEmbed.src='https://streamvault-vj0p.onrender.com/embed/live/'+slug; showState('embed'); startProgress(); }
+function playEmbed(slug){ killHls(); elEmbed.src='https://stream-vault-two-phi.vercel.app/embed/live/'+slug; showState('embed'); startProgress(); }
 
 function playYouTube(url){ killHls(); elEmbed.src=url; showState('embed'); startProgress(); }
 

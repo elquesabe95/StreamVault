@@ -3,7 +3,7 @@
 import React from "react";
 
 export default function DocsPage() {
-  const BASE = process.env.NEXT_PUBLIC_URL || "https://streamvault-vj0p.onrender.com";
+  const BASE = process.env.NEXT_PUBLIC_URL || "https://stream-vault-two-phi.vercel.app";
 
   return (
     <div style={{
