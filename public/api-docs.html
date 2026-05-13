@@ -3,250 +3,398 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StreamVault API — Embed Player</title>
+<title>StreamVault — Documentación API</title>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #080b10; --surface: #0e1420; --surface2: #111827;
-    --border: #1c2535; --accent: #00e5ff; --accent2: #7b2ff7;
-    --text: #dce8f5; --muted: #5a6f8a; --green: #00ffb3; --red: #ff4f6a; --orange: #ff9c3b;
-  }
-  body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; }
-  .wrapper { max-width: 900px; margin: 0 auto; padding: 40px 20px 80px; }
-  .hero { text-align: center; margin-bottom: 60px; }
-  .badge { display: inline-flex; align-items: center; gap: 8px; border: 1px solid rgba(0,229,255,.25); border-radius: 20px; padding: 6px 16px; font-size: 13px; color: var(--accent); margin-bottom: 24px; letter-spacing: 2px; text-transform: uppercase; }
-  .badge-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
-  h1 { font-size: clamp(2rem,5vw,3.5rem); font-weight: 800; line-height: 1.1; margin-bottom: 16px; letter-spacing: -1px; }
-  h1 span { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .hero p { color: var(--muted); font-size: 17px; max-width: 500px; margin: 0 auto 32px; }
-  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-  .btn { padding: 12px 24px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 14px; cursor: pointer; border: none; }
-  .btn-primary { background: linear-gradient(135deg,var(--accent),var(--accent2)); color: #fff; }
-  .btn-ghost { border: 1px solid var(--border); color: var(--text); background: none; }
-  .stats { display: flex; margin-top: 48px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-  .stat { flex: 1; padding: 20px 16px; text-align: center; border-right: 1px solid var(--border); background: var(--surface); }
-  .stat:last-child { border-right: none; }
-  .stat-val { font-size: 28px; font-weight: 800; }
-  .stat-lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
-  .section-label { font-size: 12px; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
-  h2 { font-size: 28px; font-weight: 800; margin-bottom: 32px; }
-  .ep-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
-  .ep-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 20px; border-bottom: 1px solid var(--border); }
-  .method { background: rgba(0,255,179,.12); color: var(--green); border: 1px solid rgba(0,255,179,.25); padding: 4px 10px; border-radius: 5px; font-size: 12px; font-weight: 700; font-family: monospace; }
-  .ep-path { font-family: monospace; font-size: 15px; flex: 1; color: var(--text); word-break: break-all; }
-  .ep-path em { color: var(--accent); font-style: normal; }
-  .ep-badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-  .badge-movie { background: rgba(0,229,255,.1); color: var(--accent); border: 1px solid rgba(0,229,255,.2); }
-  .badge-series { background: rgba(123,47,247,.1); color: #a97bf7; border: 1px solid rgba(123,47,247,.2); }
-  .badge-tv { background: rgba(255,156,59,.1); color: var(--orange); border: 1px solid rgba(255,156,59,.2); }
-  .ep-body { padding: 0 20px 20px; }
-  .ep-desc { color: var(--muted); font-size: 14px; margin: 16px 0; }
-  .params-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin: 16px 0 8px; font-family: monospace; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th { text-align: left; padding: 8px 12px; background: rgba(255,255,255,.03); color: var(--muted); font-size: 12px; font-weight: 400; border-bottom: 1px solid var(--border); }
-  td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.04); }
-  .param-name { font-family: monospace; color: var(--accent); }
-  .param-type { font-family: monospace; color: var(--orange); font-size: 13px; }
-  .req { color: var(--red); }
-  .opt { color: var(--muted); }
-  .code-block { background: #060910; border: 1px solid var(--border); border-radius: 8px; margin-top: 16px; overflow: hidden; }
-  .code-top { display: flex; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.02); }
-  .code-lang { font-size: 12px; color: var(--muted); font-family: monospace; }
-  .copy-btn { background: none; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); font-size: 12px; cursor: pointer; padding: 3px 9px; font-family: monospace; }
-  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
-  pre { padding: 16px 18px; overflow: auto; font-size: 13px; font-family: monospace; color: #8da8c8; line-height: 1.6; margin: 0; }
-  .demo-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; }
-  .demo-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: flex-end; }
-  .demo-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-  .demo-row input, .demo-row select { background: #060910; border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 8px; font-size: 14px; font-family: monospace; }
-  #demo-url { background: #060910; border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; font-family: monospace; font-size: 14px; color: var(--accent); margin-bottom: 12px; word-break: break-all; }
-  footer { text-align: center; color: var(--muted); font-size: 14px; padding-top: 40px; border-top: 1px solid var(--border); margin-top: 60px; }
-  footer strong { color: var(--text); }
-  .schema-table { background: #060910; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 14px; }
-  .schema-row { display: grid; grid-template-columns: 180px 1fr 1fr; padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,.04); }
-  .schema-row:last-child { border-bottom: none; }
-  @media (max-width: 600px) {
-    .schema-row { grid-template-columns: 1fr 1fr; }
-    .schema-row span:last-child { display: none; }
-    .ep-path { font-size: 13px; }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--bg:#0a0a0f;--surface:#0e0e16;--border:#1a1a24;--accent:#8b5cf6;--text:#c8c8d4;--muted:#6b6b7e;--dim:#5c5c6e}
+  body{background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;line-height:1.6}
+  .layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+  .sidebar{background:var(--surface);border-right:1px solid var(--border);padding:28px 20px;position:sticky;top:0;height:100vh;overflow:auto}
+  .logo{font-size:20px;font-weight:900;display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .logo-mark{background:var(--text);color:var(--bg);width:34px;height:34px;display:grid;place-items:center;font-size:13px;font-weight:900}
+  .version{font-size:11px;color:var(--dim);margin-bottom:32px}
+  .nav-item{display:block;width:100%;text-align:left;padding:12px 14px;margin-bottom:2px;background:none;border:none;color:var(--muted);font-size:14px;font-weight:600;cursor:pointer;border-left:3px solid transparent;transition:all .15s}
+  .nav-item:hover,.nav-item.active{color:#e8e8f0;background:#14141f;border-left-color:var(--accent)}
+  .nav-sub{font-size:10px;color:var(--dim);margin-top:2px;font-weight:400}
+  .providers{margin-top:auto;padding-top:24px;border-top:1px solid var(--border);font-size:11px;color:var(--dim)}
+  .providers strong{color:var(--muted);display:block;margin-bottom:8px}
+  .providers div{padding:2px 0}
+  .providers span{color:var(--accent)}
+  main{padding:48px 56px 100px;max-width:860px}
+  .section-label{font-size:10px;color:var(--accent);letter-spacing:3px;text-transform:uppercase;font-weight:700;margin-bottom:12px}
+  h1{font-size:clamp(1.8rem,3.5vw,2.6rem);font-weight:900;line-height:1.15;letter-spacing:-.03em;margin-bottom:12px}
+  h1 em{color:var(--accent);font-style:normal}
+  h2{font-size:18px;font-weight:800;margin-bottom:8px}
+  p{color:var(--muted);font-size:15px;line-height:1.7;max-width:560px;margin-bottom:24px}
+  .card{border:1px solid var(--border);border-left:4px solid var(--accent);background:var(--surface);margin-bottom:28px}
+  .card-top{border:1px solid var(--border);border-top:4px solid var(--accent);background:var(--surface);margin-bottom:28px}
+  .card-inner{padding:24px}
+  .card-header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:24px 24px 0}
+  .method-badge{background:var(--accent);color:#fff;padding:2px 10px;font-size:10px;font-weight:800;font-family:'JetBrains Mono',monospace}
+  code{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent)}
+  .param-table{width:100%;border-collapse:collapse;margin:16px 0}
+  .param-table th{text-align:left;padding:4px 10px;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+  .param-table td{padding:8px 10px;font-size:13px;border-top:1px solid rgba(255,255,255,.03)}
+  .param-table code{font-size:13px}
+  .code-block{background:#06060c;border:1px solid #161622;margin-top:16px}
+  .code-header{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:1px solid #161622}
+  .code-header span{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:2px}
+  .code-header button{background:none;border:1px solid var(--border);color:var(--dim);padding:4px 12px;cursor:pointer;font-size:11px}
+  .code-header button:hover{color:var(--accent)}
+  pre{background:#06060c;padding:14px 16px;margin:0;overflow:auto;font-size:11px;font-family:'JetBrains Mono',monospace;color:#a0a0b8;line-height:1.6}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:32px}
+  .stat{border:1px solid var(--border);background:var(--surface);padding:24px 20px;text-align:center}
+  .stat-val{font-size:28px;font-weight:900;color:var(--accent)}
+  .stat-lbl{font-size:11px;color:var(--dim);margin-top:4px;text-transform:uppercase;letter-spacing:2px}
+  .playground{display:grid;grid-template-columns:auto 1fr;gap:16px 12px;align-items:center;margin-bottom:24px}
+  .playground label{font-size:12px;color:var(--muted);font-weight:600;text-align:right}
+  .playground input,.playground select{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 14px;font-size:14px;font-family:'JetBrains Mono',monospace}
+  .btn{display:inline-block;padding:10px 24px;font-weight:700;font-size:14px;text-decoration:none;cursor:pointer}
+  .btn-primary{background:var(--accent);color:#fff;border:none}
+  .btn-ghost{border:1px solid var(--border);color:var(--muted);background:none}
+  .url-display{background:#06060c;border:1px solid #161622;padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent);word-break:break-all;margin-bottom:14px}
+  .preview{border:1px solid var(--border);background:#000;aspect-ratio:16/9;margin-top:40px}
+  .preview iframe{width:100%;height:100%;border:none}
+  footer{text-align:center;color:var(--dim);font-size:12px;padding-top:40px;border-top:1px solid var(--border);margin-top:60px}
+  @media(max-width:768px){
+    .layout{grid-template-columns:1fr}
+    .sidebar{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border)}
+    main{padding:32px 20px}
   }
 </style>
 </head>
 <body>
 
-<div class="wrapper">
-  <div class="hero">
-    <div class="badge"><span class="badge-dot"></span> Embed Player API v1.0</div>
-    <h1>Reproduce cualquier<br><span>contenido al instante</span></h1>
-    <p>Integrá el player de StreamVault en tu sitio con una sola línea. Películas, series, anime y canales TV — sin registro, sin API key.</p>
-    <div class="cta">
-      <a href="#endpoints" class="btn btn-primary">Ver Endpoints</a>
-      <a href="#demo" class="btn btn-ghost">Ver Demo</a>
-    </div>
-    <div class="stats">
-      <div class="stat"><div class="stat-val" style="color:var(--accent)">Películas, Series, TV</div><div class="stat-lbl">Tipos de contenido</div></div>
-      <div class="stat"><div class="stat-val" style="color:var(--accent2)">iframe</div><div class="stat-lbl">Método de embed</div></div>
-      <div class="stat"><div class="stat-val" style="color:var(--green)">Latino</div><div class="stat-lbl">Idioma principal</div></div>
-    </div>
-  </div>
-
-  <div id="endpoints" style="margin-bottom:60px">
-    <div class="section-label">// Referencia</div>
-    <h2>Endpoints del Player</h2>
-
-    <div class="ep-card">
-      <div class="ep-header">
-        <span class="method">GET</span>
-        <span class="ep-path">/embed/movie/<em>{tmdb_id}</em></span>
-        <span class="ep-badge badge-movie">🎬 Película</span>
+<div class="layout">
+  <aside class="sidebar">
+    <div>
+      <div class="logo">
+        <div class="logo-mark">SV</div>
+        StreamVault
       </div>
-      <div class="ep-body">
-        <p class="ep-desc">Carga el player embed para una película usando su ID de TMDB.</p>
-        <div class="params-title">Parámetros</div>
-        <table>
-          <tr><th>Nombre</th><th>Tipo</th><th>Req.</th><th>Descripción</th></tr>
-          <tr><td><span class="param-name">tmdb_id</span></td><td><span class="param-type">integer</span></td><td><span class="req">requerido</span></td><td>ID numérico de la película en TMDB</td></tr>
-        </table>
-        <div class="code-block">
-          <div class="code-top"><span class="code-lang">EJEMPLO</span><button class="copy-btn" onclick="copy(this,'&lt;iframe src=&quot;https://stream-vault-two-phi.vercel.app/embed/movie/272&quot; width=&quot;100%&quot; height=&quot;500&quot; frameborder=&quot;0&quot; allowfullscreen&gt;&lt;/iframe&gt;')">Copiar</button></div>
-          <pre>&lt;iframe src="https://stream-vault-two-phi.vercel.app/embed/movie/272"
-  width="100%" height="500" frameborder="0"
-  allowfullscreen allow="autoplay; encrypted-media"&gt;
-&lt;/iframe&gt;</pre>
+      <div class="version">Documentación · v1.0</div>
+    </div>
+
+    <nav style="margin-bottom:24px">
+      <button class="nav-item active" onclick="switchTab('embed')">
+        Embed Player
+        <div class="nav-sub">Iframe de 1 línea</div>
+      </button>
+      <button class="nav-item" onclick="switchTab('api')">
+        API REST
+        <div class="nav-sub">Endpoints JSON</div>
+      </button>
+      <button class="nav-item" onclick="switchTab('tv')">
+        TV en vivo
+        <div class="nav-sub">+4600 canales</div>
+      </button>
+      <button class="nav-item" onclick="switchTab('playground')">
+        Probador
+        <div class="nav-sub">Armá tu URL</div>
+      </button>
+    </nav>
+
+    <div class="providers">
+      <strong>Proveedores</strong>
+      <div><span>◆</span> PelisPedia</div>
+      <div><span>◆</span> YandiSpoiler</div>
+      <div><span>◆</span> Gnula</div>
+      <div><span>◆</span> CineCalidad</div>
+      <div><span>◆</span> Cuevana</div>
+      <div><span>◆</span> PelisJuanita</div>
+    </div>
+  </aside>
+
+  <main>
+    <!-- Embed Tab -->
+    <div id="tab-embed">
+      <div class="section-label">Embed Player</div>
+      <h1>Un iframe.<br><em>Todo el contenido.</em></h1>
+      <p>Pegá una línea de HTML y tenés películas, series y TV en vivo con reproductor Netflix-style, failover automático y 6 fuentes de contenido en español latino.</p>
+
+      <div class="card-top">
+        <div class="card-header">
+          <h2>Películas</h2>
+          <code>/embed/movie/:id</code>
+        </div>
+        <div style="padding:0 24px 12px;font-size:12px;color:var(--dim);font-family:'JetBrains Mono',monospace">
+          id — TMDB ID de la película
+        </div>
+        <div class="card-inner">
+          <div class="code-block">
+            <div class="code-header"><span>HTML</span><button onclick="copy(this)">Copiar</button></div>
+            <pre>&lt;iframe
+  src="https://stream-vault-two-phi.vercel.app/embed/movie/272"
+  width="100%"
+  height="500"
+  allowfullscreen
+  allow="autoplay; encrypted-media"
+&gt;&lt;/iframe&gt;</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Series</h2>
+          <code>/embed/tv/:id</code>
+        </div>
+        <div style="padding:0 24px 12px;font-size:12px;color:var(--dim);font-family:'JetBrains Mono',monospace">
+          id — TMDB ID · season — temporada · episode — episodio
+        </div>
+        <div class="card-inner">
+          <div class="code-block">
+            <div class="code-header"><span>HTML</span><button onclick="copy(this)">Copiar</button></div>
+            <pre>&lt;iframe
+  src="https://stream-vault-two-phi.vercel.app/embed/tv/1399?season=1&amp;episode=1"
+  width="100%"
+  height="500"
+  allowfullscreen
+  allow="autoplay; encrypted-media"
+&gt;&lt;/iframe&gt;</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>TV en vivo</h2>
+          <code>/embed/live/:slug</code>
+        </div>
+        <div style="padding:0 24px 12px;font-size:12px;color:var(--dim);font-family:'JetBrains Mono',monospace">
+          slug — identificador del canal (ver /api/v1/tv/all)
+        </div>
+        <div class="card-inner">
+          <div class="code-block">
+            <div class="code-header"><span>HTML</span><button onclick="copy(this)">Copiar</button></div>
+            <pre>&lt;iframe
+  src="https://stream-vault-two-phi.vercel.app/embed/live/caracol-tv"
+  width="100%"
+  height="500"
+  allowfullscreen
+  allow="autoplay; encrypted-media"
+&gt;&lt;/iframe&gt;</pre>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="ep-card">
-      <div class="ep-header">
-        <span class="method">GET</span>
-        <span class="ep-path">/embed/tv/<em>{tmdb_id}</em>?season=<em>{s}</em>&episode=<em>{e}</em></span>
-        <span class="ep-badge badge-series">📺 Series</span>
+    <!-- API Tab (hidden) -->
+    <div id="tab-api" style="display:none">
+      <div class="section-label">API REST</div>
+      <h1>Endpoints <em>en JSON.</em></h1>
+      <p>Para integraciones que necesitan los datos sin el player. Respuestas limpias con metadatos TMDB y fuentes de streaming.</p>
+
+      <div class="card-top">
+        <div class="card-inner">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
+            <span class="method-badge">GET</span>
+            <h2 style="margin:0">Obtener fuentes de streaming</h2>
+          </div>
+          <code>/api/v1/embed-serve</code>
+          <p style="font-size:13px;margin-top:8px">Devuelve metadatos TMDB + array de sources con URLs de streaming de todos los proveedores disponibles.</p>
+
+          <table class="param-table">
+            <thead><tr><th>Nombre</th><th>Tipo</th><th>Descripción</th></tr></thead>
+            <tbody>
+              <tr><td><code>type</code></td><td><code style="color:#f59e0b">string</code></td><td style="color:#8a8a9a">movie | tv</td></tr>
+              <tr><td><code>id</code></td><td><code style="color:#f59e0b">integer</code></td><td style="color:#8a8a9a">TMDB ID</td></tr>
+              <tr><td><code>season</code></td><td><code style="color:#f59e0b">integer</code></td><td style="color:#8a8a9a">N° temporada (tv)</td></tr>
+              <tr><td><code>episode</code></td><td><code style="color:#f59e0b">integer</code></td><td style="color:#8a8a9a">N° episodio (tv)</td></tr>
+            </tbody>
+          </table>
+
+          <div class="code-block">
+            <div class="code-header"><span>cURL</span><button onclick="copy(this)">Copiar</button></div>
+            <pre>curl "https://stream-vault-two-phi.vercel.app/api/v1/embed-serve?type=movie&id=272"</pre>
+          </div>
+
+          <div class="code-block" style="margin-top:12px">
+            <div class="code-header"><span>Respuesta</span></div>
+            <pre>{
+  "success": true,
+  "data": {
+    "type": "movie",
+    "title": "Batman Begins",
+    "year": "2005",
+    "sources": [
+      { "url": "https://...m3u8", "playbackType": "hls" },
+      { "url": "https://voe.sx/...", "playbackType": "iframe" }
+    ]
+  }
+}</pre>
+          </div>
+        </div>
       </div>
-      <div class="ep-body">
-        <p class="ep-desc">Carga el player embed para un episodio de serie.</p>
-        <div class="params-title">Parámetros</div>
-        <table>
-          <tr><th>Nombre</th><th>Tipo</th><th>Req.</th><th>Descripción</th></tr>
-          <tr><td><span class="param-name">tmdb_id</span></td><td><span class="param-type">integer</span></td><td><span class="req">requerido</span></td><td>ID de la serie en TMDB</td></tr>
-          <tr><td><span class="param-name">season</span></td><td><span class="param-type">integer</span></td><td><span class="req">requerido</span></td><td>Número de temporada</td></tr>
-          <tr><td><span class="param-name">episode</span></td><td><span class="param-type">integer</span></td><td><span class="req">requerido</span></td><td>Número de episodio</td></tr>
-        </table>
-        <div class="code-block">
-          <div class="code-top"><span class="code-lang">EJEMPLO</span><button class="copy-btn" onclick="copy(this,'&lt;iframe src=&quot;https://stream-vault-two-phi.vercel.app/embed/tv/1399?season=1&amp;episode=1&quot; width=&quot;100%&quot; height=&quot;500&quot; frameborder=&quot;0&quot; allowfullscreen&gt;&lt;/iframe&gt;')">Copiar</button></div>
-          <pre>&lt;iframe src="https://stream-vault-two-phi.vercel.app/embed/tv/1399?season=1&episode=1"
-  width="100%" height="500" frameborder="0"
-  allowfullscreen allow="autoplay; encrypted-media"&gt;
-&lt;/iframe&gt;</pre>
+
+      <div class="card-top" style="margin-top:28px">
+        <div class="card-inner">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
+            <span class="method-badge">GET</span>
+            <h2 style="margin:0">Canales de TV</h2>
+          </div>
+          <code>/api/v1/tv/all</code>
+          <p style="font-size:13px;margin-top:8px">Lista paginada de canales de televisión en vivo con nombre, logo, país y URL del stream.</p>
+
+          <table class="param-table">
+            <thead><tr><th>Nombre</th><th>Tipo</th><th>Descripción</th></tr></thead>
+            <tbody>
+              <tr><td><code>page</code></td><td><code style="color:#f59e0b">integer</code></td><td style="color:#8a8a9a">Página (default 1)</td></tr>
+              <tr><td><code>limit</code></td><td><code style="color:#f59e0b">integer</code></td><td style="color:#8a8a9a">Por página (max 200)</td></tr>
+              <tr><td><code>search</code></td><td><code style="color:#f59e0b">string</code></td><td style="color:#8a8a9a">Filtrar por nombre</td></tr>
+            </tbody>
+          </table>
+
+          <div class="code-block">
+            <div class="code-header"><span>cURL</span><button onclick="copy(this)">Copiar</button></div>
+            <pre>curl "https://stream-vault-two-phi.vercel.app/api/v1/tv/all?search=caracol"</pre>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="ep-card">
-      <div class="ep-header">
-        <span class="method">GET</span>
-        <span class="ep-path">/api/v1/tv/all?page=1&limit=200</span>
-        <span class="ep-badge badge-tv">📡 Canales TV</span>
+    <!-- TV Tab (hidden) -->
+    <div id="tab-tv" style="display:none">
+      <div class="section-label">TV en vivo</div>
+      <h1>+4600 canales <em>en tiempo real.</em></h1>
+      <p>Televisión en vivo de todo el mundo. Streams HLS directos sin anuncios ni interrupciones.</p>
+
+      <div class="stats">
+        <div class="stat"><div class="stat-val">+4600</div><div class="stat-lbl">Canales</div></div>
+        <div class="stat"><div class="stat-val">100+</div><div class="stat-lbl">Países</div></div>
+        <div class="stat"><div class="stat-val">HLS</div><div class="stat-lbl">Protocolo</div></div>
+        <div class="stat"><div class="stat-val">0</div><div class="stat-lbl">Anuncios</div></div>
       </div>
-      <div class="ep-body">
-        <p class="ep-desc">Lista todos los canales de TV disponibles con nombre, logo, categoría y URL del stream.</p>
-        <div class="params-title">Parámetros</div>
-        <table>
-          <tr><th>Nombre</th><th>Tipo</th><th>Req.</th><th>Descripción</th></tr>
-          <tr><td><span class="param-name">page</span></td><td><span class="param-type">integer</span></td><td><span class="opt">opcional</span></td><td>Página (default 1)</td></tr>
-          <tr><td><span class="param-name">limit</span></td><td><span class="param-type">integer</span></td><td><span class="opt">opcional</span></td><td>Resultados por página (default 20)</td></tr>
-        </table>
-        <div class="code-block">
-          <div class="code-top"><span class="code-lang">EJEMPLO</span><button class="copy-btn" onclick="copy(this,'fetch(&quot;https://stream-vault-two-phi.vercel.app/api/v1/tv/all?page=1&amp;limit=200&quot;).then(r=>r.json()).then(d=>console.log(d.results))')">Copiar</button></div>
-          <pre>fetch("https://stream-vault-two-phi.vercel.app/api/v1/tv/all?page=1&limit=200")
-  .then(r => r.json())
-  .then(data => console.log(data.results));
-// [{name, logo, country, category, url}, ...]</pre>
+
+      <div class="card">
+        <div class="card-inner">
+          <h2>Buscar canales</h2>
+          <p style="font-size:13px;margin:6px 0 12px">Busca canales por nombre. Devuelve nombre, logo, país y URL del stream.</p>
+          <pre style="border:1px solid #161622">https://stream-vault-two-phi.vercel.app/api/v1/tv/all?search=espn</pre>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-inner">
+          <h2>Listar todos</h2>
+          <p style="font-size:13px;margin:6px 0 12px">Lista paginada completa. Usá page y limit para navegar.</p>
+          <pre style="border:1px solid #161622">https://stream-vault-two-phi.vercel.app/api/v1/tv/all?page=1&limit=200</pre>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-inner">
+          <h2>Reproducir</h2>
+          <p style="font-size:13px;margin:6px 0 12px">Embed directo con el slug del canal. El player carga el stream HLS automáticamente.</p>
+          <pre style="border:1px solid #161622">&lt;iframe src="https://stream-vault-two-phi.vercel.app/embed/live/caracol-tv"
+  width="100%" height="500" allowfullscreen&gt;&lt;/iframe&gt;</pre>
         </div>
       </div>
     </div>
 
-    <div class="ep-card">
-      <div class="ep-header">
-        <span class="method">GET</span>
-        <span class="ep-path">/api/v1/tv/all?search=<em>{query}</em></span>
-        <span class="ep-badge badge-tv">🔍 Buscar TV</span>
-      </div>
-      <div class="ep-body">
-        <p class="ep-desc">Busca canales en vivo consultando múltiples fuentes (TeleOnline + Animux).</p>
-        <div class="params-title">Parámetros</div>
-        <table>
-          <tr><th>Nombre</th><th>Tipo</th><th>Req.</th><th>Descripción</th></tr>
-          <tr><td><span class="param-name">query</span></td><td><span class="param-type">string</span></td><td><span class="req">requerido</span></td><td>Término de búsqueda</td></tr>
-        </table>
-        <div class="code-block">
-          <div class="code-top"><span class="code-lang">EJEMPLO</span><button class="copy-btn" onclick="copy(this,'fetch(&quot;https://stream-vault-two-phi.vercel.app/api/v1/tv/all?search=caracol&quot;).then(r=>r.json()).then(d=>console.log(d.results))')">Copiar</button></div>
-          <pre>fetch("https://stream-vault-two-phi.vercel.app/api/v1/tv/all?search=caracol")
-  .then(r => r.json())
-  .then(data => console.log(data.results));</pre>
+    <!-- Playground Tab (hidden) -->
+    <div id="tab-playground" style="display:none">
+      <div class="section-label">Probador</div>
+      <h1>Armá tu URL <em>y probala.</em></h1>
+
+      <div class="card">
+        <div class="card-inner">
+          <div class="playground">
+            <label>Tipo</label>
+            <div style="display:flex;gap:2px">
+              <button onclick="setType('movie')" id="btn-movie" class="btn btn-primary" style="font-size:13px;padding:8px 20px">Película</button>
+              <button onclick="setType('tv')" id="btn-tv" class="btn btn-ghost" style="font-size:13px;padding:8px 20px">Serie</button>
+            </div>
+            <label>TMDB ID</label>
+            <input id="pg-id" value="272" style="width:160px">
+            <span id="row-season" style="display:none"><label>Temporada</label><input id="pg-season" value="1" style="width:80px"></span>
+            <span id="row-episode" style="display:none"><label>Episodio</label><input id="pg-episode" value="1" style="width:80px"></span>
+          </div>
+
+          <div class="url-display" id="pg-url">https://stream-vault-two-phi.vercel.app/embed/movie/272</div>
+
+          <div style="display:flex;gap:10px">
+            <a id="pg-link" href="https://stream-vault-two-phi.vercel.app/embed/movie/272" target="_blank" class="btn btn-primary">▶ Abrir player</a>
+            <button onclick="navigator.clipboard.writeText(document.getElementById('pg-url').textContent)" class="btn btn-ghost">📋 Copiar URL</button>
+          </div>
+
+          <div style="margin-top:28px">
+            <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px">Código iframe</div>
+            <pre id="pg-code" style="border:1px solid #161622">&lt;iframe
+  src="https://stream-vault-two-phi.vercel.app/embed/movie/272"
+  width="100%"
+  height="500"
+  allowfullscreen
+  allow="autoplay; encrypted-media"
+&gt;&lt;/iframe&gt;</pre>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <div id="demo" style="margin-bottom:60px">
-    <div class="section-label">// Live Demo</div>
-    <h2>Probá la API</h2>
-    <div class="demo-box">
-      <div class="demo-row">
-        <div><label>Tipo</label><select id="demo-type"><option value="movie">🎬 Película</option><option value="tv">📺 Serie</option></select></div>
-        <div><label>TMDB ID</label><input id="demo-id" type="number" value="272"></div>
-        <div id="demo-tv" style="display:none;gap:10px">
-          <div><label>Season</label><input id="demo-s" type="number" value="1" style="width:80px"></div>
-          <div><label>Episode</label><input id="demo-e" type="number" value="1" style="width:80px"></div>
-        </div>
-      </div>
-      <div id="demo-url">https://stream-vault-two-phi.vercel.app/embed/movie/272</div>
-      <div style="display:flex;gap:10px">
-        <a id="demo-link" href="https://stream-vault-two-phi.vercel.app/embed/movie/272" target="_blank" class="btn btn-primary">▶ Probar</a>
-        <button onclick="navigator.clipboard.writeText(document.getElementById('demo-url').textContent)" class="btn btn-ghost">📋 Copiar URL</button>
+      <div class="preview">
+        <iframe id="pg-preview" src="https://stream-vault-two-phi.vercel.app/embed/movie/272" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
       </div>
     </div>
-  </div>
 
-  <div style="margin-bottom:60px">
-    <div class="section-label">// Estructura</div>
-    <h2>Formatos de Embed</h2>
-    <div class="schema-table">
-      <div class="schema-row"><span style="font-weight:600">🎬 Película</span><span style="color:var(--orange);font-family:monospace">/embed/movie/{id}</span><span style="color:var(--muted);font-family:monospace;font-size:13px">streamvault-vj0p.onrender.com/embed/movie/272</span></div>
-      <div class="schema-row"><span style="font-weight:600">📺 Serie</span><span style="color:var(--orange);font-family:monospace">/embed/tv/{id}?season={s}&episode={e}</span><span style="color:var(--muted);font-family:monospace;font-size:13px">streamvault-vj0p.onrender.com/embed/tv/1399?season=1&episode=1</span></div>
-      <div class="schema-row"><span style="font-weight:600">📡 Canales</span><span style="color:var(--orange);font-family:monospace">/api/v1/tv/all</span><span style="color:var(--muted);font-family:monospace;font-size:13px">streamvault-vj0p.onrender.com/api/v1/tv/all?page=1&limit=20</span></div>
-      <div class="schema-row"><span style="font-weight:600">🔍 Buscar TV</span><span style="color:var(--orange);font-family:monospace">/api/v1/tv/all?search=</span><span style="color:var(--muted);font-family:monospace;font-size:13px">streamvault-vj0p.onrender.com/api/v1/tv/all?search=espn</span></div>
-    </div>
-  </div>
-
-  <footer>
-    <strong>StreamVault</strong> · API v1.0 · Contenido en español latino · Sin API key requerida
-  </footer>
+    <footer>StreamVault · Contenido en español latino · 6 proveedores · Sin API key</footer>
+  </main>
 </div>
 
 <script>
-function copy(btn, text) {
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = '✓ Copiado';
-    setTimeout(() => btn.textContent = 'Copiar', 2000);
+const BASE = "https://stream-vault-two-phi.vercel.app";
+let currentType = "movie";
+
+function switchTab(id) {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
+  document.getElementById('tab-' + id).style.display = 'block';
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => {
+    if (b.textContent.toLowerCase().includes(id) || (id==='playground' && b.textContent.includes('Probador')))
+      b.classList.add('active');
   });
 }
-document.getElementById('demo-type').onchange = update;
-document.getElementById('demo-id').oninput = update;
-document.getElementById('demo-s').oninput = update;
-document.getElementById('demo-e').oninput = update;
-function update() {
-  var t = document.getElementById('demo-type').value;
-  var id = document.getElementById('demo-id').value || '272';
-  var s = document.getElementById('demo-s').value || '1';
-  var e = document.getElementById('demo-e').value || '1';
-  var base = 'https://stream-vault-two-phi.vercel.app';
-  document.getElementById('demo-tv').style.display = t === 'tv' ? 'flex' : 'none';
-  var url = t === 'movie' ? base + '/embed/movie/' + id : base + '/embed/tv/' + id + '?season=' + s + '&episode=' + e;
-  document.getElementById('demo-url').textContent = url;
-  document.getElementById('demo-link').href = url;
+
+function setType(t) {
+  currentType = t;
+  document.getElementById('btn-movie').className = t==='movie' ? 'btn btn-primary' : 'btn btn-ghost';
+  document.getElementById('btn-tv').className = t==='tv' ? 'btn btn-primary' : 'btn btn-ghost';
+  document.getElementById('row-season').style.display = t==='tv' ? 'contents' : 'none';
+  document.getElementById('row-episode').style.display = t==='tv' ? 'contents' : 'none';
+  updatePlayground();
 }
+
+function updatePlayground() {
+  const id = document.getElementById('pg-id').value || '272';
+  const s = document.getElementById('pg-season')?.value || '1';
+  const e = document.getElementById('pg-episode')?.value || '1';
+  let url, code;
+  if (currentType === 'movie') {
+    url = BASE + '/embed/movie/' + id;
+  } else {
+    url = BASE + '/embed/tv/' + id + '?season=' + s + '&episode=' + e;
+  }
+  code = '<iframe\n  src="' + url + '"\n  width="100%"\n  height="500"\n  allowfullscreen\n  allow="autoplay; encrypted-media"\n></iframe>';
+  document.getElementById('pg-url').textContent = url;
+  document.getElementById('pg-link').href = url;
+  document.getElementById('pg-code').textContent = code;
+  document.getElementById('pg-preview').src = url;
+}
+
+function copy(btn) {
+  const pre = btn.closest('.code-block')?.querySelector('pre');
+  if (pre) {
+    navigator.clipboard.writeText(pre.textContent).then(() => {
+      btn.textContent = 'Copiado!';
+      setTimeout(() => btn.textContent = 'Copiar', 1500);
+    });
+  }
+}
+
+document.getElementById('pg-id').addEventListener('input', updatePlayground);
+document.getElementById('pg-season').addEventListener('input', updatePlayground);
+document.getElementById('pg-episode').addEventListener('input', updatePlayground);
+
+document.querySelectorAll('.nav-item').forEach(b => b.style.cursor = 'pointer');
 </script>
 </body>
 </html>
