@@ -28,7 +28,7 @@ export default function Player({ url, title }: PlayerProps) {
     if (window.jwplayer && playerRef.current) {
       window.jwplayer(playerRef.current).setup({
         file: url,
-        title: title || "StreamVault Player",
+        title: title || "Streamix Player",
         width: "100%",
         aspectratio: "16:9",
         autostart: true,

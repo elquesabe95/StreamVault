@@ -1,4 +1,4 @@
-// Cloudflare Worker Proxy for StreamVault
+// Cloudflare Worker Proxy for Streamix
 // Usage: https://your-worker.workers.dev/?url=https://target.com/&ref=https://referer.com/
 
 export default {

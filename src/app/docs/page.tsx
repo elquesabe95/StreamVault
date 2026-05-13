@@ -44,7 +44,7 @@ export default function DocsPage() {
               width: 36, height: 36, display: "grid", placeItems: "center",
               fontSize: 14, fontWeight: 900
             }}>SV</span>
-            StreamVault
+            Streamix
           </div>
           <div style={{ fontSize: 12, color: "#5c5c6e", marginTop: 4 }}>
             Documentación técnica · v1.0

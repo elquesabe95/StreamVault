@@ -506,7 +506,7 @@ export default function PlayerPage() {
           allowFullScreen
           allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
           style={{ border: "none" }}
-          title={`${data?.title || "Player"} - StreamVault`}
+          title={`${data?.title || "Player"} - Streamix`}
         />
       )}
 
@@ -609,7 +609,7 @@ export default function PlayerPage() {
             <div className="flex items-center justify-between max-w-3xl mx-auto">
               <div>
                 <p className="text-white font-bold text-lg mb-1">Has completado {data.title}</p>
-                <p className="text-white/50 text-sm">Gracias por ver en StreamVault</p>
+                <p className="text-white/50 text-sm">Gracias por ver en Streamix</p>
               </div>
               <button
                 onClick={() => {

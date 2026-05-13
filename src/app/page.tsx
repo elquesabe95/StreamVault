@@ -110,7 +110,7 @@ export default function Home() {
 
       <header>
         <div className="header-inner">
-          <a className="logo" href="#"><span className="logo-dot">●</span> StreamVault</a>
+          <a className="logo" href="#"><span className="logo-dot">●</span> Streamix</a>
           <nav>
             <a href="#endpoints">API</a>
             <a href="#demo">Demo</a>
@@ -298,7 +298,7 @@ export default function Home() {
         </section>
 
         <footer>
-          StreamVault · 4 proveedores activos · Contenido en español latino · Sin API key
+          Streamix · 4 proveedores activos · Contenido en español latino · Sin API key
         </footer>
       </div>
 

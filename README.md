@@ -1,4 +1,4 @@
-# StreamVault
+# Streamix
 
 > API de streaming multi-proveedor con reproductor embed estilo Netflix. Películas, series y TV en vivo en español latino.
 

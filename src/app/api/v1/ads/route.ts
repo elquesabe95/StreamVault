@@ -18,8 +18,8 @@ interface CustomAd {
 const DEFAULT_ADS: CustomAd[] = [
   {
     id: "sv-premium",
-    title: "StreamVault Premium",
-    description: "Disfruta sin interrupciones con StreamVault Premium. Miles de series y peliculas en HD.",
+    title: "Streamix Premium",
+    description: "Disfruta sin interrupciones con Streamix Premium. Miles de series y peliculas en HD.",
     clickUrl: "",
     duration: 5,
     active: true,
