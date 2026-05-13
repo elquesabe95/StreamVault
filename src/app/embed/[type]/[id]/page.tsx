@@ -62,47 +62,56 @@ function EmbedContent() {
 
         if (!json.success) {
           setError(json.message || "No se pudo cargar el contenido");
+          setLoading(false);
           return;
         }
 
-        let sources: EmbedSource[] = json.data.sources || [];
-
-        // Client-side JWT resolution for embed69 URLs
-        const embed69Sources = sources.filter((s: EmbedSource) => s.url.includes("embed69.org"));
-        if (embed69Sources.length > 0) {
-          setResolvingJwt(true);
-          const jwtResults: EmbedSource[] = [];
-          let jwtCount = 0;
-
-          await Promise.all(embed69Sources.map(async (src: EmbedSource) => {
-            const resolved = await resolveEmbed69Client(src.url);
-            for (const link of resolved) {
-              jwtCount++;
-              jwtResults.push({
-                url: link,
-                name: `JWT ${jwtCount}`,
-                lang: src.lang || "Latino",
-                playbackType: resolvePlaybackType(link),
-              });
-            }
-          }));
-
-          if (jwtResults.length > 0) {
-            // Add resolved JWT streams at the beginning
-            sources = [...jwtResults, ...sources];
-          }
-          setResolvingJwt(false);
-        }
-
-        setData({ ...json.data, sources });
+        const sources: EmbedSource[] = json.data.sources || [];
 
         if (sources.length === 0) {
           setError("No se encontraron fuentes disponibles para este contenido.");
+          setLoading(false);
+          return;
+        }
+
+        // Show player immediately
+        setData({ ...json.data, sources });
+        setLoading(false);
+
+        // Resolve JWT in background (non-blocking)
+        const embed69Sources = sources.filter((s: EmbedSource) => s.url.includes("embed69.org"));
+        if (embed69Sources.length > 0) {
+          const jwtResults: EmbedSource[] = [];
+          let jwtCount = 0;
+
+          const resolved = await Promise.allSettled(
+            embed69Sources.map(async (src: EmbedSource) => {
+              const links = await resolveEmbed69Client(src.url);
+              return links.map(link => ({
+                url: link,
+                name: `JWT ${++jwtCount}`,
+                lang: src.lang || "Latino",
+                playbackType: resolvePlaybackType(link),
+              }));
+            })
+          );
+
+          for (const r of resolved) {
+            if (r.status === "fulfilled") jwtResults.push(...r.value);
+          }
+
+          if (jwtResults.length > 0 && !cancelled) {
+            setData(prev => prev ? {
+              ...prev,
+              sources: [...jwtResults, ...prev.sources]
+            } : null);
+          }
         }
       } catch (e: any) {
-        if (!cancelled) setError(e.message || "Error al conectar con el servidor");
-      } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setError(e.message || "Error al conectar con el servidor");
+          setLoading(false);
+        }
       }
     }
 

@@ -117,44 +117,6 @@ export async function GET(req: NextRequest) {
 
     const providers = [
       {
-        name: "CineCalidad",
-        fn: async () => {
-          const res = await searchCinecalidad(query);
-          let match = findExactMatch(res);
-          let targetUrl = match?.url || (type === "movie" ? "" : "");
-          if (!match) {
-            targetUrl = type === "movie"
-              ? `https://www.cinecalidad.ro/pelicula/${slugTitle}/`
-              : `https://www.cinecalidad.ro/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
-          } else if (type !== "movie") {
-            const epUrl = await getCinecalidadEpisodeUrl(match.url, season, episode);
-            if (epUrl) targetUrl = epUrl; else return [];
-          }
-          if (!targetUrl) return [];
-          const sources = await getCinecalidadSources(targetUrl);
-          return sources.map((s: any) => ({ ...s, lang: s.lang === "latino" ? "Latino" : s.lang === "spanish" ? "Castellano" : "Sub" }));
-        },
-      },
-      {
-        name: "Cuevana",
-        fn: async () => {
-          const res = await searchCuevana(query);
-          let match = findExactMatch(res);
-          let targetUrl = match?.url || "";
-          if (!match) {
-            targetUrl = type === "movie"
-              ? `https://cuevana.biz/pelicula/${slugTitle}/`
-              : `https://cuevana.biz/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
-          } else if (type !== "movie") {
-            const epUrl = await getCuevanaEpisodeUrl(match.url, season, episode);
-            if (epUrl) targetUrl = epUrl; else return [];
-          }
-          if (!targetUrl) return [];
-          const sources = await getCuevanaSources(targetUrl);
-          return sources.map((s: any) => ({ ...s, lang: s.lang === "latino" ? "Latino" : s.lang === "spanish" ? "Castellano" : "Sub" }));
-        },
-      },
-      {
         name: "PelisPedia",
         fn: async () => {
           const res = await searchPelispedia(query);
@@ -211,25 +173,6 @@ export async function GET(req: NextRequest) {
           return sources.map((s: any) => ({ ...s, lang: "Latino" }));
         },
       },
-      {
-        name: "PelisJuanita",
-        fn: async () => {
-          const res = await searchJuanita(query);
-          let match = findExactMatch(res);
-          let targetUrl = match?.url || "";
-          if (!match) {
-            targetUrl = type === "movie"
-              ? `https://pelisjuanita.com/pelicula/${slugTitle}/`
-              : `https://pelisjuanita.com/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
-          } else if (type !== "movie") {
-            const epUrl = await getJuanitaEpisodeUrl(match.url, season, episode);
-            if (epUrl) targetUrl = epUrl; else return [];
-          }
-          if (!targetUrl) return [];
-          const sources = await getJuanitaSources(targetUrl);
-          return sources.map((s: any) => ({ ...s, lang: "Latino" }));
-        },
-      },
     ];
 
     const finalSources: any[] = [];
@@ -242,23 +185,30 @@ export async function GET(req: NextRequest) {
 
     // Run all providers in parallel with individual timeouts
     const allResults = await Promise.allSettled(
-      providers.map(p => withTimeout(p.fn().catch(() => []), 8000, p.name))
+      providers.map(p => withTimeout(p.fn().catch(() => []), 5000, p.name))
     );
 
-    for (const r of allResults) {
+    for (let pi = 0; pi < allResults.length; pi++) {
+      const r = allResults[pi];
       if (r.status !== "fulfilled") continue;
-      const providerName = providers[allResults.indexOf(r)]?.name || "?";
-      for (const item of r.value) {
-        const rawUrl = item.url || item.remote;
-        if (!rawUrl) continue;
-
-        const urls = await resolveDeep(rawUrl);
+      const providerName = providers[pi]?.name || "?";
+      
+      // Resolve all source URLs in parallel
+      const resolved = await Promise.all(
+        r.value.map(async (item: any) => {
+          const rawUrl = item.url || item.remote;
+          if (!rawUrl) return { urls: [] as string[], lang: "Latino" };
+          const urls = await resolveDeep(rawUrl);
+          const lang = item.lang === "spanish" ? "Castellano" :
+            item.lang === "subbed" ? "Sub" : "Latino";
+          return { urls, lang };
+        })
+      );
+      
+      for (const { urls, lang } of resolved) {
         for (const u of urls) {
           if (seen.has(u)) continue;
           seen.add(u);
-
-          const lang = item.lang === "spanish" ? "Castellano" :
-            item.lang === "subbed" ? "Sub" : "Latino";
 
           finalSources.push({
             url: u,
