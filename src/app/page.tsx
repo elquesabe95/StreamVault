@@ -121,15 +121,15 @@ export default function Home() {
 
       <div className="wrapper">
         <div className="hero">
-          <div className="hero-tag">v1.0 · 4 proveedores · español latino</div>
+          <div className="hero-tag">v1.0 · 11 proveedores · películas, series, anime · español latino</div>
           <h1>Streaming<br /><span style={{color:"var(--accent)"}}>en una línea.</span></h1>
-          <p>Integrá películas, series y TV en vivo con un iframe. Reproductor Netflix-style, failover automático, sin API key.</p>
+          <p>Integrá películas, series, anime y TV en vivo con un iframe. Reproductor Netflix-style, failover automático, sin API key.</p>
           <div className="hero-actions">
             <a href="#endpoints" className="btn btn-fill">Ver API</a>
             <a href="/docs" className="btn btn-outline">Documentación</a>
           </div>
           <div className="stat-row">
-            <div className="stat-item"><div className="stat-val" style={{color:"var(--accent)"}}>4</div><div className="stat-lbl">Proveedores</div></div>
+            <div className="stat-item"><div className="stat-val" style={{color:"var(--accent)"}}>11</div><div className="stat-lbl">Proveedores</div></div>
             <div className="stat-item"><div className="stat-val">iframe</div><div className="stat-lbl">Embed</div></div>
             <div className="stat-item"><div className="stat-val" style={{color:"var(--accent)"}}>+4600</div><div className="stat-lbl">Canales TV</div></div>
             <div className="stat-item"><div className="stat-val">0</div><div className="stat-lbl">API Key</div></div>
@@ -152,15 +152,15 @@ export default function Home() {
               },
               {
                 method:"iframe", path:"/embed/tv/:id",
-                badge:"📺 Serie",
-                desc:"Reproductor embed para series. Requiere season y episode.",
+                badge:"📺 Serie / Anime",
+                desc:"Reproductor embed para series y anime. Requiere season y episode.",
                 params:[["id","integer","TMDB ID"],["season","integer","Temporada"],["episode","integer","Episodio"]],
                 code:`<iframe src="${BASE}/embed/tv/1399?season=1&episode=1"\n  width="100%" height="500"\n  allowfullscreen\n  allow="autoplay; encrypted-media"></iframe>`
               },
               {
                 method:"GET", path:"/api/v1/embed-serve",
                 badge:"🔌 API JSON",
-                desc:"Devuelve metadatos TMDB + fuentes de streaming de todos los proveedores. Respuesta JSON.",
+                desc:"Devuelve metadatos TMDB + fuentes de streaming de todos los proveedores (películas, series, anime). Respuesta JSON.",
                 params:[["type","string","movie | tv"],["id","integer","TMDB ID"],["season","integer","(tv)"],["episode","integer","(tv)"]],
                 code:`curl "${BASE}/api/v1/embed-serve?type=movie&id=272"\n\n// Respuesta:\n{\n  "success": true,\n  "data": {\n    "title": "Batman Begins",\n    "year": "2005",\n    "sources": [\n      { "url": "...m3u8", "playbackType": "hls" },\n      { "url": "...mp4", "playbackType": "mp4" }\n    ]\n  }\n}`
               },
@@ -219,7 +219,7 @@ export default function Home() {
             {[
               { type:"movie", id:272, title:"Batman Begins", sub:"2005 · Película", poster:"https://image.tmdb.org/t/p/w500/6yMWU1vWkOBbNRIwOxhetd2aHhO.jpg" },
               { type:"tv", id:1399, s:1, e:1, title:"Game of Thrones", sub:"2011 · T1E1", poster:"https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg" },
-              { type:"tv", id:37854, s:1, e:1, title:"One Piece", sub:"1999 · T1E1", poster:"https://image.tmdb.org/t/p/w500/2uGjavvyQkTK26u2KGW6z2yDg9o.jpg" },
+              { type:"tv", id:37854, s:1, e:1, title:"One Piece", sub:"⛩️ Anime · T1E1", poster:"https://image.tmdb.org/t/p/w500/2uGjavvyQkTK26u2KGW6z2yDg9o.jpg" },
             ].map((item,i) => {
               const url = item.type === "movie"
                 ? `${BASE}/embed/movie/${item.id}`
@@ -289,7 +289,7 @@ export default function Home() {
           <div className="schema-box" style={{marginTop:16}}>
             <div className="schema-row head"><div>Tipo</div><div>Patrón</div><div>Ejemplo</div></div>
             <div className="schema-row"><div className="schema-name">Película</div><div className="schema-path">/embed/movie/:id</div><div className="schema-ex">{BASE}/embed/movie/272</div></div>
-            <div className="schema-row"><div className="schema-name">Serie</div><div className="schema-path">/embed/tv/:id</div><div className="schema-ex">{BASE}/embed/tv/1399?season=1&episode=1</div></div>
+            <div className="schema-row"><div className="schema-name">Serie / Anime</div><div className="schema-path">/embed/tv/:id</div><div className="schema-ex">{BASE}/embed/tv/1399?season=1&episode=1</div></div>
             <div className="schema-row"><div className="schema-name">TV en vivo</div><div className="schema-path">/embed/live/:slug</div><div className="schema-ex">{BASE}/embed/live/caracol-tv</div></div>
             <div className="schema-row"><div className="schema-name">API JSON</div><div className="schema-path">/api/v1/embed-serve</div><div className="schema-ex">{BASE}/api/v1/embed-serve?type=movie&id=272</div></div>
             <div className="schema-row"><div className="schema-name">Canales</div><div className="schema-path">/api/v1/tv/all</div><div className="schema-ex">{BASE}/api/v1/tv/all?search=espn</div></div>
@@ -298,7 +298,7 @@ export default function Home() {
         </section>
 
         <footer>
-          Streamix · 4 proveedores activos · Contenido en español latino · Sin API key
+          Streamix · 11 proveedores · Películas, series, anime · TV en vivo · Sin API key
         </footer>
       </div>
 

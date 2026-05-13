@@ -1,10 +1,11 @@
 # Streamix
 
-> API de streaming multi-proveedor con reproductor embed estilo Netflix. Películas, series y TV en vivo en español latino.
+> API de streaming multi-proveedor con reproductor embed estilo Netflix. Películas, series, anime y TV en vivo en español latino y subtitulado.
 
 ## Características
 
-- **6 proveedores de streaming** — PelisPedia, YandiSpoiler, Gnula, CineCalidad, Cuevana, PelisJuanita
+- **6 proveedores de películas/series** — PelisPedia, YandiSpoiler, Gnula, CineCalidad, Cuevana, PelisJuanita
+- **5 proveedores de anime** — AnimeAV1, Anime1v, JKAnime, AnimeFLV, Doramasflix
 - **Resolución inteligente** — JWT, P.A.C.K.E.R., base64, streams HLS/MP4 directos
 - **Reproductor embed** — iframe con controles Netflix, failover automático entre servidores
 - **TV en vivo** — +4600 canales de TeleOnline + Animux
@@ -26,10 +27,11 @@ TMDB_API_KEY=tu_key
 | Endpoint | Uso |
 |---|---|
 | `GET /embed/movie/{tmdb_id}` | Player embed para película |
-| `GET /embed/tv/{tmdb_id}?season=&episode=` | Player embed para serie |
+| `GET /embed/tv/{tmdb_id}?season=&episode=` | Player embed para serie y anime |
 | `GET /embed/live/{slug}` | Player embed para TV en vivo |
 | `GET /api/v1/embed-serve?type=movie&id={tmdb_id}` | API JSON de fuentes de streaming |
-| `GET /api/v1/embed-serve?type=tv&id={tmdb_id}&season=&episode=` | API JSON de fuentes para serie |
+| `GET /api/v1/embed-serve?type=tv&id={tmdb_id}&season=&episode=` | API JSON de fuentes para serie/anime |
+| `GET /api/v1/scraper?type=anime&source={provider}&id={slug}` | API JSON de servidores de anime |
 | `GET /api/v1/tv/all` | Lista de canales de TV |
 | `GET /api/v1/tv/all?search=espn` | Buscar canales de TV |
 
@@ -41,7 +43,7 @@ TMDB_API_KEY=tu_key
   width="100%" height="500" allowfullscreen
   allow="autoplay; encrypted-media"></iframe>
 
-<!-- Serie -->
+<!-- Serie / Anime -->
 <iframe src="https://stream-vault-two-phi.vercel.app/embed/tv/1399?season=1&episode=1"
   width="100%" height="500" allowfullscreen
   allow="autoplay; encrypted-media"></iframe>
@@ -54,14 +56,26 @@ TMDB_API_KEY=tu_key
 
 ## Proveedores de contenido
 
-| # | Proveedor | Tipo | Estado |
-|---|---|---|---|
-| 1 | PelisPedia | Películas + Series | ✅ |
-| 2 | YandiSpoiler | Películas + Series | ✅ |
-| 3 | Gnula | Películas + Series | ✅ |
-| 4 | CineCalidad | Películas + Series | ⚠️ |
-| 5 | Cuevana | Películas + Series | ⚠️ |
-| 6 | PelisJuanita | Películas | ⚠️ |
+### Películas y Series
+
+| # | Proveedor | Estado |
+|---|---|---|
+| 1 | PelisPedia | ✅ |
+| 2 | YandiSpoiler | ✅ |
+| 3 | Gnula | ✅ |
+| 4 | CineCalidad | ⚠️ |
+| 5 | Cuevana | ⚠️ |
+| 6 | PelisJuanita | ⚠️ |
+
+### Anime
+
+| # | Proveedor | Estado |
+|---|---|---|
+| 1 | AnimeAV1 | ✅ |
+| 2 | Anime1v | ✅ |
+| 3 | JKAnime | ✅ |
+| 4 | AnimeFLV | ✅ |
+| 5 | Doramasflix | ✅ |
 
 ## Stack
 
