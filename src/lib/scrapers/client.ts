@@ -46,6 +46,7 @@ function isCloudflareChallenge(html: string): boolean {
 function getProxies(): string[] {
   return [
     process.env.PROXY_WORKER_URL || "https://streamvault-proxy.elquesabe95.workers.dev",
+    "https://api.codetabs.com/v1/proxy?quest=",
     "https://corsproxy.io/?",
     "https://api.allorigins.win/raw?url=",
   ];
@@ -64,9 +65,12 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
       const isCFWorker = proxy.includes("workers.dev");
       const isCorsProxy = proxy.includes("corsproxy.io");
       const isAllOrigins = proxy.includes("allorigins.win");
+      const isCodeTabs = proxy.includes("codetabs.com");
 
       let proxyUrl: string;
       if (isCorsProxy || isAllOrigins) {
+        proxyUrl = `${proxy}${encodeURIComponent(freshUrl)}`;
+      } else if (isCodeTabs) {
         proxyUrl = `${proxy}${encodeURIComponent(freshUrl)}`;
       } else {
         proxyUrl = `${proxy}?url=${encodeURIComponent(freshUrl)}`;
