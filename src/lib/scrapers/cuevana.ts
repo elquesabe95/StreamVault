@@ -20,9 +20,14 @@ async function getWorkingBase(): Promise<string> {
 }
 
 /**
- * Use readPage with proxy mode + multi-proxy fallback
+ * Try direct first (Vercel may not be blocked), proxy as fallback
  */
 async function readCuevana(url: string): Promise<string> {
+  // Try direct first
+  let html = await readPage(url, { Referer: "https://cuevana.biz/" }, false);
+  if (html && html.length > 500) return html;
+  // Fallback to proxy
+  console.log(`[Cuevana] Direct failed, retrying via proxy...`);
   return readPage(url, { Referer: "https://cuevana.biz/" }, true);
 }
 

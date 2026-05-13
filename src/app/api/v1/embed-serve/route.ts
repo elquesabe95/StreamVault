@@ -73,41 +73,36 @@ export async function GET(req: NextRequest) {
       if (!results?.length) return null;
       const q = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       const norm = (t: string) => t.replace(/&#39;/g, "'").replace(/&amp;/g, "&").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      // 1. Exact title + year match
-      if (year) {
-        const exactYear = results.find((r: any) => norm(r.title) === q && r.title.includes(year));
-        if (exactYear) return exactYear;
-      }
-      // 2. Exact title match
+      // 1. Exact title match
       const exact = results.find((r: any) => norm(r.title) === q);
       if (exact) return exact;
-      // 3. Exact title match on any result (case insensitive original)
+      // 2. Exact title match on original casing
       const exactOrig = results.find((r: any) => r.title.toLowerCase().trim() === query.toLowerCase().trim());
       if (exactOrig) return exactOrig;
-      // 4. Word-boundary + year filter
+      // 3. Word-boundary match — require year when available to avoid false matches
       const wordRegex = new RegExp(`\\b${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+      if (year) {
+        // With year: only return if result title contains the year
+        const wordYear = results.find((r: any) => {
+          const t = norm(r.title);
+          if (!wordRegex.test(t)) return false;
+          if (q.length <= 5 && t.length > q.length * 3) return false;
+          return r.title.includes(year);
+        });
+        if (wordYear) return wordYear;
+        // If we have year but no result matches, return null — don't guess
+        return null;
+      }
+      // Without year: word-boundary match with short-query rejection
       const wordMatch = results.find((r: any) => {
         const t = norm(r.title);
         if (!wordRegex.test(t)) return false;
         if (q.length <= 5 && t.length > q.length * 3) return false;
-        if (year && !r.title.includes(year)) return false; // Enforce year match
         return true;
       });
       if (wordMatch) return wordMatch;
-      // 5. Word-boundary without year (looser)
-      const wordMatchLooser = results.find((r: any) => {
-        const t = norm(r.title);
-        if (!wordRegex.test(t)) return false;
-        if (q.length <= 5 && t.length > q.length * 3) return false;
-        return true;
-      });
-      if (wordMatchLooser) return wordMatchLooser;
-      // 6. Fallback: only if query is long enough
+      // Last resort: partial match for long queries
       if (q.length > 5) {
-        if (year) {
-          const partialYear = results.find((r: any) => { const t = norm(r.title); return (t.includes(q) || q.includes(t)) && r.title.includes(year); });
-          if (partialYear) return partialYear;
-        }
         const partial = results.find((r: any) => { const t = norm(r.title); return t.includes(q) || q.includes(t); });
         if (partial) return partial;
       }

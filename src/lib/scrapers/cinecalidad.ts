@@ -3,9 +3,12 @@ import { readPage } from "./client";
 const BASE_URL = "https://www.cinecalidad.ro";
 
 /**
- * Use readPage with proxy mode + multi-proxy fallback
+ * Try direct first (Vercel may not be blocked), proxy as fallback
  */
 async function readCC(url: string): Promise<string> {
+  let html = await readPage(url, { Referer: BASE_URL + "/" }, false);
+  if (html && html.length > 500) return html;
+  console.log(`[CineCalidad] Direct failed, retrying via proxy...`);
   return readPage(url, { Referer: BASE_URL + "/" }, true);
 }
 
