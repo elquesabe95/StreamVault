@@ -2,11 +2,16 @@ import { spawnSync } from "child_process";
 
 function buildHeaders(customHeaders?: Record<string, string>): Record<string, string> {
   return {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
     "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
     "Cache-Control": "no-cache, no-store, must-revalidate",
     "Pragma": "no-cache",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
     ...customHeaders
   };
 }
@@ -24,7 +29,20 @@ async function tryFetch(url: string, headers: Record<string, string>, timeout: n
 
 function tryCurl(url: string, headers: Record<string, string>): string {
   try {
-    const args = ["-s", "-L", "--max-time", "4"];
+    // PHP-style curl with specific options that might bypass blocks
+    const args = [
+      "-s", "-L", "--max-time", "4",
+      "--tlsv1.2",
+      "--http2",
+      "-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "-H", "Accept-Language: es-ES,es;q=0.9",
+      "-H", "Connection: keep-alive",
+      "-H", "Upgrade-Insecure-Requests: 1",
+      "-H", "Sec-Fetch-Dest: document",
+      "-H", "Sec-Fetch-Mode: navigate",
+      "-H", "Sec-Fetch-Site: none",
+      "-H", "Sec-Fetch-User: ?1",
+    ];
     Object.entries(headers).forEach(([k, v]) => {
       args.push("-H", `${k}: ${v}`);
     });
