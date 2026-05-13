@@ -193,12 +193,15 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    console.log(`[EmbedServe] ${metadata.title} — ${finalSources.length} sources in ${Date.now() - start}ms`);
+    // Safety net: strip dead hosts
+    const safeSources = finalSources.filter(s => !/minochinos|earnvids/i.test(s.url));
+
+    console.log(`[EmbedServe] ${metadata.title} — ${safeSources.length} sources in ${Date.now() - start}ms`);
 
     return NextResponse.json({
       success: true,
-      _v: 3,
-      data: { type, ...metadata, sources: finalSources },
+      _v: 4,
+      data: { type, ...metadata, sources: safeSources },
     });
 
   } catch (error) {
