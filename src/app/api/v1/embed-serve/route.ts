@@ -181,8 +181,8 @@ export async function GET(req: NextRequest) {
           let targetUrl = match?.url || "";
           if (!match) {
             targetUrl = type === "movie"
-              ? `https://ww3.gnulahd.nu/pelicula/${slugTitle}/`
-              : `https://ww3.gnulahd.nu/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
+              ? `https://ww3.gnulahd.nu/ver/${slugTitle}/`
+              : `https://ww3.gnulahd.nu/ver/${slugTitle}/`;
           } else if (type !== "movie") {
             const epUrl = await getGnulaEpisodeUrl(match.url, season, episode);
             if (epUrl) targetUrl = epUrl; else return [];

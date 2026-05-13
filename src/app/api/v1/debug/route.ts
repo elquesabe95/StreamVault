@@ -106,6 +106,29 @@ export async function GET(req: NextRequest) {
       results.iframes = iframes;
     }
 
+    if (action === "gnula_search") {
+      const url = `https://ww3.gnulahd.nu/?s=${encodeURIComponent(query)}`;
+      const html = await readPage(url, {}, true);
+      results.url = url;
+      results.htmlLength = html.length;
+      results.htmlPreview = html.substring(0, 8000);
+      const titles: string[] = [];
+      const itemRegex = /<article[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>[\s\S]*?<h2[^>]*>([^<]+)<\/h2>/gi;
+      let m;
+      while ((m = itemRegex.exec(html)) !== null) {
+        titles.push(`${m[2].trim()} → ${m[1]}`);
+      }
+      results.foundTitles = titles;
+    }
+
+    if (action === "yandi_search") {
+      const url = `https://yandispoiler.net/?s=${encodeURIComponent(query)}`;
+      const html = await readPage(url, {}, true);
+      results.url = url;
+      results.htmlLength = html.length;
+      results.htmlPreview = html.substring(0, 8000);
+    }
+
     return NextResponse.json({ success: true, results });
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e.message, results });

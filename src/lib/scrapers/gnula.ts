@@ -52,12 +52,31 @@ export async function getGnulaSources(pageUrl: string): Promise<GnulaSource[]> {
     sources.push({ server: "Gnula", url, lang: "latino" });
   }
   
-  // Try to find server buttons/options
-  const serverRegex = /(?:data-url|data-link|data-src)=["']([^"']+)["']/gi;
-  while ((match = serverRegex.exec(html)) !== null) {
+  // Try data attributes for video sources
+  const dataRegex = /(?:data-url|data-link|data-src|data-player|data-embed|data-video)=["']([^"']+)["']/gi;
+  while ((match = dataRegex.exec(html)) !== null) {
     let url = match[1];
     if (url.startsWith("//")) url = "https:" + url;
+    if (!url.startsWith("http")) continue;
     sources.push({ server: "Gnula", url, lang: "latino" });
+  }
+  
+  // Try JavaScript embedded URLs (file:, source:, video: patterns)
+  const jsUrlRegex = /(?:file|source|video|src)\s*:\s*["'](https?:\/\/[^"']+)["']/gi;
+  while ((match = jsUrlRegex.exec(html)) !== null) {
+    sources.push({ server: "Gnula", url: match[1], lang: "latino" });
+  }
+  
+  // Try option values in selects (server chooser)
+  const optionRegex = /<option[^>]+value="(https?:\/\/[^"]+)"[^>]*>/gi;
+  while ((match = optionRegex.exec(html)) !== null) {
+    sources.push({ server: "Gnula", url: match[1], lang: "latino" });
+  }
+  
+  // Try .m3u8 and .mp4 direct links anywhere in the page
+  const directRegex = /(https?:\/\/[^\s"'<>]+\.(?:m3u8|mp4)[^\s"'<>]*)/gi;
+  while ((match = directRegex.exec(html)) !== null) {
+    sources.push({ server: "Gnula", url: match[1], lang: "latino" });
   }
   
   return sources;
