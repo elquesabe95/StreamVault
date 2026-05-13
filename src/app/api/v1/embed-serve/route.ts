@@ -242,7 +242,7 @@ export async function GET(req: NextRequest) {
 
     // Run all providers in parallel with individual timeouts
     const allResults = await Promise.allSettled(
-      providers.map(p => withTimeout(p.fn().catch(() => []), 10000, p.name))
+      providers.map(p => withTimeout(p.fn().catch(() => []), 8000, p.name))
     );
 
     for (const r of allResults) {

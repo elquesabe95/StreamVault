@@ -24,7 +24,7 @@ async function tryFetch(url: string, headers: Record<string, string>, timeout: n
 
 function tryCurl(url: string, headers: Record<string, string>): string {
   try {
-    const args = ["-s", "-L", "--max-time", "8"];
+    const args = ["-s", "-L", "--max-time", "4"];
     Object.entries(headers).forEach(([k, v]) => {
       args.push("-H", `${k}: ${v}`);
     });
@@ -77,7 +77,7 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
         if (headers["Origin"]) proxyUrl += `&origin=${encodeURIComponent(headers["Origin"])}`;
       }
 
-      const html = await tryFetch(proxyUrl, headers, 10000);
+      const html = await tryFetch(proxyUrl, headers, 6000);
       if (html && !isCloudflareChallenge(html) && html.length > 500) {
         console.log(`[readPage] Proxy OK: ${proxy.substring(0, 30)} (${html.length}b)`);
         return html;
@@ -88,7 +88,7 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   }
 
   // No proxy requested — try direct then curl
-  let html = await tryFetch(freshUrl, headers, 6000);
+  let html = await tryFetch(freshUrl, headers, 4000);
   if (html && !isCloudflareChallenge(html)) {
     console.log(`[readPage] Direct (${html.length}b): ${url.substring(0, 60)}`);
     return html;

@@ -77,6 +77,35 @@ export async function GET(req: NextRequest) {
       results.htmlPreview = html.substring(0, 8000);
     }
 
+    if (action === "yandi_page") {
+      const slug = searchParams.get("slug") || query.toLowerCase().replace(/\s+/g, "-");
+      const url = `https://yandispoiler.net/pelicula/${slug}/`;
+      const html = await readPage(url, {}, true);
+      results.url = url;
+      results.htmlLength = html.length;
+      results.hasDataLink = /dataLink/.test(html);
+      results.htmlPreview = html.substring(0, 6000);
+      const iframes: string[] = [];
+      const iframeRegex = /<iframe[^>]+src=["']([^"']+)["']/gi;
+      let iMatch;
+      while ((iMatch = iframeRegex.exec(html)) !== null) iframes.push(iMatch[1]);
+      results.iframes = iframes;
+    }
+
+    if (action === "gnula_page") {
+      const slug = searchParams.get("slug") || query.toLowerCase().replace(/\s+/g, "-");
+      const url = `https://ww3.gnulahd.nu/pelicula/${slug}/`;
+      const html = await readPage(url, {}, true);
+      results.url = url;
+      results.htmlLength = html.length;
+      results.htmlPreview = html.substring(0, 6000);
+      const iframes: string[] = [];
+      const iframeRegex = /<iframe[^>]+src=["']([^"']+)["']/gi;
+      let iMatch;
+      while ((iMatch = iframeRegex.exec(html)) !== null) iframes.push(iMatch[1]);
+      results.iframes = iframes;
+    }
+
     return NextResponse.json({ success: true, results });
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e.message, results });
