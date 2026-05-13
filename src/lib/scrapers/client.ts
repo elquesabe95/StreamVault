@@ -44,8 +44,11 @@ function isCloudflareChallenge(html: string): boolean {
 }
 
 function getProxies(): string[] {
-  const worker = process.env.PROXY_WORKER_URL || "https://streamvault-proxy.elquesabe95.workers.dev";
-  return [worker];
+  return [
+    process.env.PROXY_WORKER_URL || "https://streamvault-proxy.elquesabe95.workers.dev",
+    "https://corsproxy.io/?",
+    "https://api.allorigins.win/raw?url=",
+  ];
 }
 
 export async function readPage(url: string, customHeaders?: Record<string, string>, useProxy: boolean = false): Promise<string> {
@@ -59,13 +62,22 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   if (useProxy) {
     for (const proxy of getProxies()) {
       const isCFWorker = proxy.includes("workers.dev");
-      const proxyUrl = `${proxy}?url=${encodeURIComponent(freshUrl)}`;
-      let fullUrl = proxyUrl;
-      if (isCFWorker) {
-        if (headers["Referer"]) fullUrl += `&ref=${encodeURIComponent(headers["Referer"])}`;
-        if (headers["Origin"]) fullUrl += `&origin=${encodeURIComponent(headers["Origin"])}`;
+      const isCorsProxy = proxy.includes("corsproxy.io");
+      const isAllOrigins = proxy.includes("allorigins.win");
+
+      let proxyUrl: string;
+      if (isCorsProxy || isAllOrigins) {
+        proxyUrl = `${proxy}${encodeURIComponent(freshUrl)}`;
+      } else {
+        proxyUrl = `${proxy}?url=${encodeURIComponent(freshUrl)}`;
       }
-      const html = await tryFetch(fullUrl, headers, 15000);
+
+      if (isCFWorker) {
+        if (headers["Referer"]) proxyUrl += `&ref=${encodeURIComponent(headers["Referer"])}`;
+        if (headers["Origin"]) proxyUrl += `&origin=${encodeURIComponent(headers["Origin"])}`;
+      }
+
+      const html = await tryFetch(proxyUrl, headers, 15000);
       if (html && !isCloudflareChallenge(html) && html.length > 500) {
         console.log(`[readPage] Proxy OK: ${proxy.substring(0, 30)} (${html.length}b)`);
         return html;

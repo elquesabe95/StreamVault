@@ -20,20 +20,10 @@ async function getWorkingBase(): Promise<string> {
 }
 
 /**
- * Force proxy for all Cuevana requests (their Cloudflare blocks Render)
+ * Use readPage with proxy mode + multi-proxy fallback
  */
 async function readCuevana(url: string): Promise<string> {
-  const proxyBase = "https://streamvault-proxy.elquesabe95.workers.dev";
-  const proxyUrl = `${proxyBase}?url=${encodeURIComponent(url)}&ref=${encodeURIComponent("https://cuevana.biz/")}`;
-  const res = await fetch(proxyUrl, {
-    signal: AbortSignal.timeout(15000),
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "Accept": "text/html,application/xhtml+xml",
-      "Accept-Language": "es-ES,es;q=0.9",
-    }
-  });
-  return res.ok ? res.text() : "";
+  return readPage(url, { Referer: "https://cuevana.biz/" }, true);
 }
 
 /**

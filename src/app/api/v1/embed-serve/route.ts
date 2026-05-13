@@ -21,6 +21,7 @@ async function resolveDeep(url: string): Promise<string[]> {
   const directIframe = /voe\.sx|hglink\.to|bysedikamoum/.test(url);
   // Skip dead hosts  
   if (/minochinos/.test(url)) return [];
+  if (directIframe) return [url];
   
   const first = await resolveStream(url).catch(() => url);
   return Array.isArray(first) ? first.slice(0, 12) : [first];
