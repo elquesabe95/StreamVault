@@ -146,28 +146,30 @@ export async function GET(req: NextRequest) {
     }
 
     if (action === "unlimplay") {
-      // Fetch Unlimplay main page
+      // Fetch Unlimplay main page - get more content
       const r1 = await fetch("https://unlimplay.com/", { signal: AbortSignal.timeout(10000) }).then(r => r.text()).catch(() => "");
-      results.unlimplayHome = r1.substring(0, 5000);
+      results.unlimplayHomeFull = r1.length;
+      // Extract body content after the large CSS block
+      const bodyStart = r1.indexOf("<body");
+      const mainStart = r1.indexOf("<main", bodyStart);
+      results.unlimplayContent = r1.substring(mainStart > 0 ? mainStart : Math.max(0, r1.length - 8000), Math.min(r1.length, (mainStart > 0 ? mainStart : r1.length - 8000) + 10000));
       
-      // Try their API
-      const r2 = await fetch("https://unlimplay.com/api/embed?url=https://embed69.org/d/d67RS1d97vzBW4jHtMuDRG", { signal: AbortSignal.timeout(10000) }).then(r => r.text()).catch(() => "");
-      results.unlimplayApi1 = r2.substring(0, 3000);
+      // Try different API endpoints
+      // 1. Try with TMDB ID
+      const a1 = await fetch("https://unlimplay.com/api/embed?type=movie&id=272", { signal: AbortSignal.timeout(10000) }).then(r => r.text()).catch(e => e.message);
+      results.apiMovieById = a1.substring(0, 500);
       
-      // Try player endpoint
-      const r3 = await fetch("https://unlimplay.com/player?url=https://embed69.org/d/d67RS1d97vzBW4jHtMuDRG", { signal: AbortSignal.timeout(10000) }).then(r => r.text()).catch(() => "");
-      results.unlimplayPlayer = r3.substring(0, 3000);
+      // 2. Try with TMDB ID as tmdb param
+      const a2 = await fetch("https://unlimplay.com/api/embed?tmdb=272&type=movie", { signal: AbortSignal.timeout(10000) }).then(r => r.text()).catch(e => e.message);
+      results.apiTmdb = a2.substring(0, 500);
       
-      // Try source endpoint
-      const r4 = await fetch("https://unlimplay.com/source?url=https://embed69.org/d/d67RS1d97vzBW4jHtMuDRG", { signal: AbortSignal.timeout(10000) }).then(r => r.text()).catch(() => "");
-      results.unlimplaySource = r4.substring(0, 3000);
+      // 3. Try source endpoint with embed69 URL
+      const a3 = await fetch("https://unlimplay.com/api/source?url=https://embed69.org/d/d67RS1d97vzBW4jHtMuDRG", { signal: AbortSignal.timeout(10000) }).then(r => r.text()).catch(e => e.message);
+      results.apiSource = a3.substring(0, 1000);
       
-      // Try forobeta forum
-      const r5 = await fetch("https://forobeta.com/temas/cohete-presentamos-el-recolector-de-enlaces-de-unlimplay.1091390/", { 
-        signal: AbortSignal.timeout(10000),
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
-      }).then(r => r.text()).catch(() => "");
-      results.forobetaPreview = r5.substring(0, 10000);
+      // 4. Try the API with search
+      const a4 = await fetch("https://unlimplay.com/api/search?q=michael", { signal: AbortSignal.timeout(10000) }).then(r => r.text()).catch(e => e.message);
+      results.apiSearch = a4.substring(0, 500);
     }
 
     return NextResponse.json({ success: true, results });
