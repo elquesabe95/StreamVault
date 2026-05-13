@@ -28,11 +28,12 @@ export default {
       "Origin": customOrigin || `https://${targetUrl.hostname}`,
     };
 
+    // Promise.race for timeout
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 15000));
+    
     try {
-      const res = await fetch(target, { 
-        headers, 
-        redirect: "follow"
-      });
+      const fetchPromise = fetch(target, { headers, redirect: "follow" });
+      const res = await Promise.race([fetchPromise, timeout]);
       
       const body = await res.text();
 
@@ -41,7 +42,9 @@ export default {
         headers: {
           "Content-Type": res.headers.get("Content-Type") || "text/html; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
-          "Cache-Control": "public, max-age=3600",
+          // No cache — CDN must not cache proxy responses
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
         },
       });
     } catch (e) {
