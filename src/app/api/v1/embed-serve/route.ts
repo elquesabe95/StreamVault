@@ -23,7 +23,7 @@ async function resolveDeep(url: string): Promise<string[]> {
   // Direct iframe hosts — pass through without resolution
   const directIframe = /voe\.sx|hglink\.to|bysedikamoum/.test(url);
   // Skip dead hosts  
-  if (/minochinos|short\.icu/i.test(url)) return [];
+  if (/minochinos|short\.icu|embed69/i.test(url)) return [];
   if (directIframe) return [url];
   
   const first = await resolveStream(url).catch(() => url);
@@ -117,21 +117,40 @@ export async function GET(req: NextRequest) {
 
     const providers = [
       {
-        name: "PelisPedia",
+        name: "YandiSpoiler",
         fn: async () => {
-          const res = await searchPelispedia(query);
+          const res = await searchYandi(query);
           let match = findExactMatch(res);
           let targetUrl = match?.url || "";
           if (!match) {
             targetUrl = type === "movie"
-              ? `https://pelispedia.mov/pelicula/${slugTitle}/`
-              : `https://pelispedia.mov/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
+              ? `https://yandispoiler.net/pelicula/${slugTitle}/`
+              : `https://yandispoiler.net/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
           } else if (type !== "movie") {
-            const epUrl = await getPelispediaEpisodeUrl(match.url, season, episode);
+            const epUrl = await getYandiEpisodeUrl(match.url, season, episode);
             if (epUrl) targetUrl = epUrl; else return [];
           }
           if (!targetUrl) return [];
-          const sources = await getPelispediaSources(targetUrl);
+          const sources = await getYandiSources(targetUrl);
+          return sources.map((s: any) => ({ ...s, lang: "Latino" }));
+        },
+      },
+      {
+        name: "Gnula",
+        fn: async () => {
+          const res = await searchGnula(query);
+          let match = findExactMatch(res);
+          let targetUrl = match?.url || "";
+          if (!match) {
+            targetUrl = type === "movie"
+              ? `https://ww3.gnulahd.nu/ver/${slugTitle}/`
+              : `https://ww3.gnulahd.nu/ver/${slugTitle}/`;
+          } else if (type !== "movie") {
+            const epUrl = await getGnulaEpisodeUrl(match.url, season, episode);
+            if (epUrl) targetUrl = epUrl; else return [];
+          }
+          if (!targetUrl) return [];
+          const sources = await getGnulaSources(targetUrl);
           return sources.map((s: any) => ({ ...s, lang: "Latino" }));
         },
       },
@@ -155,40 +174,21 @@ export async function GET(req: NextRequest) {
         },
       },
       {
-        name: "Gnula",
+        name: "PelisPedia",
         fn: async () => {
-          const res = await searchGnula(query);
+          const res = await searchPelispedia(query);
           let match = findExactMatch(res);
           let targetUrl = match?.url || "";
           if (!match) {
             targetUrl = type === "movie"
-              ? `https://ww3.gnulahd.nu/ver/${slugTitle}/`
-              : `https://ww3.gnulahd.nu/ver/${slugTitle}/`;
+              ? `https://pelispedia.mov/pelicula/${slugTitle}/`
+              : `https://pelispedia.mov/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
           } else if (type !== "movie") {
-            const epUrl = await getGnulaEpisodeUrl(match.url, season, episode);
+            const epUrl = await getPelispediaEpisodeUrl(match.url, season, episode);
             if (epUrl) targetUrl = epUrl; else return [];
           }
           if (!targetUrl) return [];
-          const sources = await getGnulaSources(targetUrl);
-          return sources.map((s: any) => ({ ...s, lang: "Latino" }));
-        },
-      },
-      {
-        name: "YandiSpoiler",
-        fn: async () => {
-          const res = await searchYandi(query);
-          let match = findExactMatch(res);
-          let targetUrl = match?.url || "";
-          if (!match) {
-            targetUrl = type === "movie"
-              ? `https://yandispoiler.net/pelicula/${slugTitle}/`
-              : `https://yandispoiler.net/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
-          } else if (type !== "movie") {
-            const epUrl = await getYandiEpisodeUrl(match.url, season, episode);
-            if (epUrl) targetUrl = epUrl; else return [];
-          }
-          if (!targetUrl) return [];
-          const sources = await getYandiSources(targetUrl);
+          const sources = await getPelispediaSources(targetUrl);
           return sources.map((s: any) => ({ ...s, lang: "Latino" }));
         },
       },
@@ -240,7 +240,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Safety net: strip dead hosts and YouTube embeds
-    const safeSources = finalSources.filter(s => !/minochinos|earnvids|short\.icu/i.test(s.url) && !/youtube\.com|youtu\.be/i.test(s.url));
+    const safeSources = finalSources.filter(s => !/minochinos|earnvids|short\.icu|embed69/i.test(s.url) && !/youtube\.com|youtu\.be/i.test(s.url));
 
     console.log(`[EmbedServe] ${metadata.title} — ${safeSources.length} sources in ${Date.now() - start}ms`);
 
