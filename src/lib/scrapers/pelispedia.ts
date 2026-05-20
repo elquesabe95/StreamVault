@@ -179,7 +179,11 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
           expanded.push({ server: `Servidor ${vidCount}`, url: u, lang: "latino" });
         }
         console.log(`[PelisPedia] Vidurl expanded to ${vidCount} servers`);
+        if (vidCount > 0) continue; // Success, skip fallback
       }
+      // Fallback: keep original vidurl if expansion failed
+      console.log(`[PelisPedia] Vidurl expansion failed, keeping original`);
+      expanded.push(s);
     } else {
       expanded.push(s);
     }
