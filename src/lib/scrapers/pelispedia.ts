@@ -157,7 +157,7 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
   }
   
   // Filter out known dead hosts
-  const deadHosts = /minochinos|earnvids|short\.icu/i;
+  const deadHosts = /minochinos|earnvids|short\.icu|embed69/i;
   return sources.filter(s => !deadHosts.test(s.url));
 }
 

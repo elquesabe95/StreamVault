@@ -59,7 +59,7 @@ export async function getJuanitaSources(pageUrl: string): Promise<JuanitaSource[
     let url = match[1];
     if (url.startsWith("//")) url = "https:" + url;
     else if (url.startsWith("/")) url = "https://pelisjuanita.com" + url;
-    if (url.includes('.js') || url.includes('cloudflare') || url.includes('google') || url.includes('.css') || url.includes('youtube.com') || url.includes('youtu.be') || url.includes('short.icu')) continue;
+    if (url.includes('.js') || url.includes('cloudflare') || url.includes('google') || url.includes('.css') || url.includes('youtube.com') || url.includes('youtu.be') || url.includes('short.icu') || url.includes('embed69')) continue;
     
     sources.push({ server: "Juanita", url, lang: "latino" });
   }
