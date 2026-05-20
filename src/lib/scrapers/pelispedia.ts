@@ -167,22 +167,50 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
       console.log(`[PelisPedia] Following vidurl: ${s.url}`);
       const vidHtml = await readPage(s.url, {}, true);
       if (vidHtml && vidHtml.length > 500) {
+        const seen = new Set<string>();
+        let vidCount = 0;
+
+        // 1. iframe tags
         const iframeRegex = /<iframe[^>]+src=["']([^"']+)["']/gi;
         let m;
-        let vidCount = 0;
         while ((m = iframeRegex.exec(vidHtml)) !== null) {
           let u = m[1];
           if (u.startsWith("//")) u = "https:" + u;
           else if (u.startsWith("/")) u = BASE_URL + u;
+          if (!u.startsWith("http")) continue;
           if (u.includes('.js') || u.includes('cloudflare') || u.includes('google') || u.includes('youtube.com') || u.includes('youtu.be') || deadHosts.test(u)) continue;
+          if (seen.has(u)) continue;
+          seen.add(u);
           vidCount++;
           expanded.push({ server: `Servidor ${vidCount}`, url: u, lang: "latino" });
         }
+
+        // 2. data attributes
+        const dataRegex = /data-(?:url|link|src|embed|video)=["'](https?:\/\/[^"']+)["']/gi;
+        while ((m = dataRegex.exec(vidHtml)) !== null) {
+          const u = m[1];
+          if (seen.has(u)) continue;
+          seen.add(u);
+          vidCount++;
+          expanded.push({ server: `Servidor ${vidCount}`, url: u, lang: "latino" });
+        }
+
+        // 3. JavaScript file/src variables
+        const jsRegex = /(?:file|src|url|video)\s*[:=]\s*["'](https?:\/\/[^"']+)["']/gi;
+        while ((m = jsRegex.exec(vidHtml)) !== null) {
+          const u = m[1];
+          if (u.includes('.m3u8') || u.includes('.mp4') || u.includes('embed') || u.includes('player')) {
+            if (seen.has(u)) continue;
+            seen.add(u);
+            vidCount++;
+            expanded.push({ server: `Servidor ${vidCount}`, url: u, lang: "latino" });
+          }
+        }
+
         console.log(`[PelisPedia] Vidurl expanded to ${vidCount} servers`);
-        if (vidCount > 0) continue; // Success, skip fallback
+        if (vidCount > 0) continue;
       }
-      // Fallback: keep original vidurl if expansion failed
-      console.log(`[PelisPedia] Vidurl expansion failed, keeping original`);
+      // Fallback: keep original vidurl
       expanded.push(s);
     } else {
       expanded.push(s);
