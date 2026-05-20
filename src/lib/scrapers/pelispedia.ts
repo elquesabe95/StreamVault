@@ -158,7 +158,34 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
   
   // Filter out known dead hosts
   const deadHosts = /minochinos|earnvids|short\.icu/i;
-  return sources.filter(s => !deadHosts.test(s.url));
+  const filtered = sources.filter(s => !deadHosts.test(s.url));
+
+  // Expand vidurl internal player pages
+  const expanded: PelisSource[] = [];
+  for (const s of filtered) {
+    if (s.url.includes("pelispedia.mov/vidurl/")) {
+      console.log(`[PelisPedia] Following vidurl: ${s.url}`);
+      const vidHtml = await readPage(s.url, {}, true);
+      if (vidHtml && vidHtml.length > 500) {
+        const iframeRegex = /<iframe[^>]+src=["']([^"']+)["']/gi;
+        let m;
+        let vidCount = 0;
+        while ((m = iframeRegex.exec(vidHtml)) !== null) {
+          let u = m[1];
+          if (u.startsWith("//")) u = "https:" + u;
+          else if (u.startsWith("/")) u = BASE_URL + u;
+          if (u.includes('.js') || u.includes('cloudflare') || u.includes('google') || u.includes('youtube.com') || u.includes('youtu.be') || deadHosts.test(u)) continue;
+          vidCount++;
+          expanded.push({ server: `Servidor ${vidCount}`, url: u, lang: "latino" });
+        }
+        console.log(`[PelisPedia] Vidurl expanded to ${vidCount} servers`);
+      }
+    } else {
+      expanded.push(s);
+    }
+  }
+
+  return expanded;
 }
 
 /**
