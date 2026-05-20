@@ -142,7 +142,20 @@ export async function GET(req: NextRequest) {
       const html = await readPage(url, {}, true);
       results.url = url;
       results.htmlLength = html.length;
-      results.htmlPreview = html.substring(0, 8000);
+      results.htmlPreview = html.substring(0, 5000);
+      const titles: string[] = [];
+      const itemRegex = /<article[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*title="([^"]+)"[^>]*>/gi;
+      let m;
+      while ((m = itemRegex.exec(html)) !== null) {
+        titles.push(`${m[2].trim()} → ${m[1]}`);
+      }
+      if (titles.length === 0) {
+        const h2Regex = /<article[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>[\s\S]*?<h2[^>]*>([^<]+)<\/h2>/gi;
+        while ((m = h2Regex.exec(html)) !== null) {
+          titles.push(`${m[2].trim()} → ${m[1]}`);
+        }
+      }
+      results.foundTitles = titles;
     }
 
     if (action === "unlimplay") {

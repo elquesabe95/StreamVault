@@ -147,9 +147,41 @@ export async function resolveStream(url: string): Promise<string | string[]> {
   console.log(`[Resolver] Resolving: ${url}`);
 
   try {
-    // Try direct first, proxy as fallback (embed69 may block proxy IPs)
     const needsProxy = false;
     const extraHeaders: Record<string, string> = {};
+
+    // PelisPedia uses /vidurl/ internal player — follow it
+    if (url.includes("pelispedia.mov/vidurl/")) {
+      extraHeaders["Referer"] = "https://pelispedia.mov/";
+      const vidHtml = await readPage(url, extraHeaders, false);
+      if (vidHtml && vidHtml.length > 500) {
+        console.log(`[Resolver] Following PelisPedia vidurl (${vidHtml.length}b)`);
+        // Extract iframe sources from the vidurl page
+        const foundUrls: string[] = [];
+        const iframeRegex = /<iframe[^>]+src=["']([^"']+)["']/gi;
+        let m;
+        while ((m = iframeRegex.exec(vidHtml)) !== null) {
+          let u = m[1];
+          if (u.startsWith("//")) u = "https:" + u;
+          else if (u.startsWith("/")) u = "https://pelispedia.mov" + u;
+          if (!u.includes('youtube') && !u.includes('google') && !u.includes('cloudflare')) {
+            foundUrls.push(u);
+          }
+        }
+        if (foundUrls.length > 0) {
+          console.log(`[Resolver] Found ${foundUrls.length} embeds in vidurl page`);
+          // Recursively resolve these
+          const resolved = await Promise.all(foundUrls.map(u => resolveStream(u).catch(() => u as string)));
+          const all: string[] = [];
+          for (const r of resolved) {
+            if (Array.isArray(r)) all.push(...r);
+            else all.push(r);
+          }
+          return [...new Set(all)];
+        }
+      }
+    }
+
     if (url.includes("embed69.org")) {
       extraHeaders["Referer"] = "https://pelispedia.mov/";
     }
