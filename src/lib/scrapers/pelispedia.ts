@@ -67,13 +67,14 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
   }
 
   // 2. Extract iframes from player divs
-  const playerDivRegex = /<div[^>]+id="player-(\d+)"[^>]*>[\s\S]*?<iframe[^>]+src=["']((?:https?:)?\/\/[^"']+)["']/g;
+  const playerDivRegex = /<div[^>]+id="player-(\d+)"[^>]*>[\s\S]*?<iframe[^>]+src=["']([^"']+)["']/g;
   let pMatch;
   
   while ((pMatch = playerDivRegex.exec(html)) !== null) {
     const index = parseInt(pMatch[1]);
     let url = pMatch[2];
     if (url.startsWith("//")) url = "https:" + url;
+    else if (url.startsWith("/")) url = BASE_URL + url;
     
     // Skip non-video resources
     if (url.includes('.js') || url.includes('cloudflare') || url.includes('google') || url.includes('.css') || url.includes('youtube.com') || url.includes('youtu.be')) continue;
@@ -86,11 +87,12 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
   }
   
   // 3. Fallback: catch any remaining iframes with video-like URLs
-  const iframeRegex = /<iframe[^>]+src=["']((?:https?:)?\/\/[^"']+)["']/gi;
+  const iframeRegex = /<iframe[^>]+src=["']([^"']+)["']/gi;
   let iMatch;
   while ((iMatch = iframeRegex.exec(html)) !== null) {
     let url = iMatch[1];
     if (url.startsWith("//")) url = "https:" + url;
+    else if (url.startsWith("/")) url = BASE_URL + url;
     if (url.includes('.js') || url.includes('cloudflare') || url.includes('google') || url.includes('youtube.com') || url.includes('youtu.be')) continue;
     
     // If it's a known multi-server host, we'll handle it in the resolver

@@ -81,9 +81,13 @@ export async function getCinecalidadSources(pageUrl: string): Promise<CineSource
   while ((match = iframeRegex.exec(html)) !== null) {
     const url = match[1];
     if (url.includes("embed") || url.includes("player")) {
+      let fixedUrl: string;
+      if (url.startsWith("//")) fixedUrl = `https:${url}`;
+      else if (url.startsWith("/")) fixedUrl = BASE_URL + url;
+      else fixedUrl = url;
       sources.push({
         server: "Embed",
-        url: url.startsWith("//") ? `https:${url}` : url,
+        url: fixedUrl,
         lang: "latino"
       });
     }

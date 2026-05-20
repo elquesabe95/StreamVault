@@ -47,6 +47,7 @@ export async function getGnulaSources(pageUrl: string): Promise<GnulaSource[]> {
   while ((match = iframeRegex.exec(html)) !== null) {
     let url = match[1];
     if (url.startsWith("//")) url = "https:" + url;
+    else if (url.startsWith("/")) url = "https://ww3.gnulahd.nu" + url;
     if (url.includes('.js') || url.includes('cloudflare') || url.includes('google') || url.includes('.css') || url.includes('youtube.com') || url.includes('youtu.be') || url.includes('short.icu')) continue;
     
     sources.push({ server: "Gnula", url, lang: "latino" });

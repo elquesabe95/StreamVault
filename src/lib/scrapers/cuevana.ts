@@ -85,18 +85,20 @@ export async function getCuevanaSources(pageUrl: string): Promise<CuevanaSource[
     if (iframeMatch) {
       let url = iframeMatch[1];
       if (url.startsWith("//")) url = "https:" + url;
+      else if (url.startsWith("/")) url = "https://cuevana.biz" + url;
       sources.push({ server: "Cuevana Player", url, lang: "latino" });
     }
   }
   
   // 2. Fallback: any iframe with embed/player in URL
   if (sources.length === 0) {
-    const iframeRegex = /<iframe[^>]+src=["'](https?:\/\/[^"']+)["']/gi;
+    const iframeRegex = /<iframe[^>]+src=["']([^"']+)["']/gi;
     let iMatch;
     while ((iMatch = iframeRegex.exec(html)) !== null) {
       const url = iMatch[1];
       if (url.includes('.js') || url.includes('cloudflare') || url.includes('google')) continue;
-      sources.push({ server: "Cuevana Embed", url, lang: "latino" });
+      let fixedUrl = url.startsWith("//") ? "https:" + url : url.startsWith("/") ? "https://cuevana.biz" + url : url;
+      sources.push({ server: "Cuevana Embed", url: fixedUrl, lang: "latino" });
     }
   }
   
