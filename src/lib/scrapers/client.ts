@@ -164,13 +164,6 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
     console.log(`[readPage] Native (${html.length}b): ${url.substring(0, 60)}`);
     return html;
   }
-  if (html) console.warn(`[readPage] Cloudflare detected on direct`);
-
-  html = tryCurl(freshUrl, headers);
-  if (html && !isCloudflareChallenge(html)) {
-    console.log(`[readPage] curl (${html.length}b)`);
-    return html;
-  }
 
   console.warn(`[readPage] FAILED after all attempts: ${url.substring(0, 80)}`);
   return "";
