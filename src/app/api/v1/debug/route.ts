@@ -142,20 +142,28 @@ export async function GET(req: NextRequest) {
       const html = await readPage(url, {}, true);
       results.url = url;
       results.htmlLength = html.length;
-      results.htmlPreview = html.substring(0, 5000);
+      // Search for body content
+      const bodyIdx = html.indexOf("<body");
+      results.bodyStart = html.substring(bodyIdx > 0 ? bodyIdx : 0, Math.min(html.length, (bodyIdx > 0 ? bodyIdx : 0) + 15000));
+      
       const titles: string[] = [];
-      const itemRegex = /<article[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*title="([^"]+)"[^>]*>/gi;
-      let m;
-      while ((m = itemRegex.exec(html)) !== null) {
-        titles.push(`${m[2].trim()} → ${m[1]}`);
-      }
-      if (titles.length === 0) {
-        const h2Regex = /<article[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>[\s\S]*?<h2[^>]*>([^<]+)<\/h2>/gi;
-        while ((m = h2Regex.exec(html)) !== null) {
-          titles.push(`${m[2].trim()} → ${m[1]}`);
+      // Try multiple patterns
+      const patterns = [
+        /<a[^>]+href="([^"]+)"[^>]*title="([^"]+)"[^>]*>/gi,
+        /<h2[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gi,
+        /<a[^>]+href="([^"]+)"[^>]*>[\s\S]*?<h2[^>]*>([^<]+)/gi,
+        /<img[^>]+alt="([^"]+)"[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>/gi,
+      ];
+      for (const pattern of patterns) {
+        let m;
+        while ((m = pattern.exec(html)) !== null) {
+          const url = m[1];
+          const title = m[2];
+          if (url && title && title.length > 2) titles.push(`${title.trim()} → ${url}`);
         }
+        if (titles.length > 0) break;
       }
-      results.foundTitles = titles;
+      results.foundTitles = titles.slice(0, 20);
     }
 
     if (action === "unlimplay") {
