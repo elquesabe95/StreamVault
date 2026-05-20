@@ -35,17 +35,17 @@ async function readCuevana(url: string): Promise<string> {
  * Search for content on Cuevana
  */
 export async function searchCuevana(query: string) {
-  const BASE_URL = await getWorkingBase();
+  const BASE_URL = "https://cuevana.biz";
   const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(query)}`;
   const html = await readCuevana(searchUrl);
   
   const results: { title: string; url: string; poster?: string }[] = [];
   
-  // Robust pattern that handles different Cuevana themes
+  // Generic article + anchor + title pattern
   const patterns = [
-    /TPostMnv[\s\S]*?href=["']([^"']+)["'][\s\S]*?<h2[^>]*class=["']Title["'][^>]*>([^<]+)<\/h2>/g,
-    /href=["'](https?:\/\/[^"']*\/(?:serie|pelicula|film)\/[^"']+)["'][^>]*>[\s\S]*?<h2[^>]*>([^<]+)<\/h2>/g,
-    /class=["'][^"']*TPostMn[^"']*["'][\s\S]*?href=["']([^"']+)["'][\s\S]*?title=["']([^"']+)["']/g,
+    /<article[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*title="([^"]+)"[^>]*>/gi,
+    /<article[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>[\s\S]*?<h2[^>]*>([^<]+)<\/h2>/gi,
+    /<a[^>]+href="([^"]+)"[^>]*>[\s\S]*?<h2[^>]*>([^<]+)<\/h2>/gi,
   ];
   
   for (const pattern of patterns) {
@@ -53,9 +53,16 @@ export async function searchCuevana(query: string) {
     while ((match = pattern.exec(html)) !== null) {
       const url = match[1];
       const title = match[2];
-      if (url && title) {
-        results.push({ title: title.trim(), url });
+      if (url && title && !url.includes('#') && !url.includes('javascript')) {
+        const fullUrl = url.startsWith("http") ? url : `${BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+        results.push({ title: title.trim(), url: fullUrl });
       }
+    }
+    if (results.length > 0) break;
+  }
+  
+  return results;
+}
     }
     if (results.length > 0) break;
   }

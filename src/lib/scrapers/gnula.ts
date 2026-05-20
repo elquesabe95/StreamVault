@@ -9,21 +9,26 @@ export interface GnulaSource {
 }
 
 export async function searchGnula(query: string) {
-  const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(query)}`;
+  const searchUrl = `https://ww3.gnulahd.nu/?s=${encodeURIComponent(query)}`;
   const html = await readPage(searchUrl, {}, true);
   
   const results: { title: string; url: string; poster?: string }[] = [];
   
-  // Pattern: article.bs.styleegg > a.tip with href and title
-  const itemRegex = /<article[^>]+class="[^"]*bs[^"]*styleegg[^"]*"[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]+class="[^"]*tip[^"]*"[^>]*>[\s\S]*?<h2[^>]*>([^<]+)<\/h2>/gi;
+  // Generic WordPress article pattern — works with any theme
+  const itemRegex = /<article[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>[\s\S]*?<h2[^>]*>([^<]+)<\/h2>/gi;
   let match;
   
   while ((match = itemRegex.exec(html)) !== null) {
     const url = match[1];
     const title = match[2];
     if (url && title) {
-      results.push({ title: title.trim(), url });
+      const fullUrl = url.startsWith("http") ? url : `https://ww3.gnulahd.nu${url.startsWith("/") ? "" : "/"}${url}`;
+      results.push({ title: title.trim(), url: fullUrl });
     }
+  }
+  
+  return results;
+}
   }
   
   // Fallback: simpler pattern

@@ -9,21 +9,39 @@ export interface YandiSource {
 }
 
 export async function searchYandi(query: string) {
-  const searchUrl = `${BASE_URL}/?s=${encodeURIComponent(query)}`;
+  const searchUrl = `https://yandispoiler.net/?s=${encodeURIComponent(query)}`;
   const html = await readPage(searchUrl, {}, true);
   
   const results: { title: string; url: string; poster?: string }[] = [];
   
-  // Pattern: .sideranking-item > .sideranking-link > .sideranking-item-title
-  const itemRegex = /sideranking-item[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]+class="[^"]*sideranking-link[^"]*"[^>]*>[\s\S]*?sideranking-item-title[^>]*>([^<]+)</gi;
+  // Generic article pattern — works with any WordPress theme
+  const itemRegex = /<article[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*title="([^"]+)"[^>]*>/gi;
   let match;
   
   while ((match = itemRegex.exec(html)) !== null) {
     const url = match[1];
     const title = match[2];
     if (url && title) {
-      results.push({ title: title.trim(), url });
+      const fullUrl = url.startsWith("http") ? url : `https://yandispoiler.net${url.startsWith("/") ? "" : "/"}${url}`;
+      results.push({ title: title.trim(), url: fullUrl });
     }
+  }
+  
+  // Fallback: h2 pattern
+  if (results.length === 0) {
+    const h2Regex = /<article[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>[\s\S]*?<h2[^>]*>([^<]+)<\/h2>/gi;
+    while ((match = h2Regex.exec(html)) !== null) {
+      const url = match[1];
+      const title = match[2];
+      if (url && title) {
+        const fullUrl = url.startsWith("http") ? url : `https://yandispoiler.net${url.startsWith("/") ? "" : "/"}${url}`;
+        results.push({ title: title.trim(), url: fullUrl });
+      }
+    }
+  }
+  
+  return results;
+}
   }
   
   // Fallback: simpler article pattern (WordPress theme)

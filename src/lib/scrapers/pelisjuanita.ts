@@ -9,24 +9,29 @@ export interface JuanitaSource {
 }
 
 export async function searchJuanita(query: string) {
-  const searchUrl = `${BASE_URL}/movies/search?s=${encodeURIComponent(query)}`;
+  const searchUrl = `https://pelisjuanita.com/movies/search?s=${encodeURIComponent(query)}`;
   const html = await readPage(searchUrl, {}, true);
   
   const results: { title: string; url: string; poster?: string }[] = [];
   
-  // Pattern: movie cards with links
-  const cardRegex = /<a[^>]+href="([^"]*\/pelicula\/[^"]+)"[^>]*>[\s\S]*?(?:alt|title)="([^"]+)"[^>]*>/gi;
+  // Generic link pattern
+  const linkRegex = /<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gi;
   let match;
   
-  while ((match = cardRegex.exec(html)) !== null) {
+  while ((match = linkRegex.exec(html)) !== null) {
     const url = match[1];
     const title = match[2];
-    if (url && title) {
-      results.push({ 
-        title: title.trim(), 
-        url: url.startsWith("http") ? url : `${BASE_URL}${url}` 
-      });
+    if (url && title && title.trim().length > 2 && !url.includes('javascript') && !url.includes('#')) {
+      const fullUrl = url.startsWith("http") ? url : `https://pelisjuanita.com${url.startsWith("/") ? "" : "/"}${url}`;
+      // Only include movie/serie links
+      if (fullUrl.includes("/pelicula/") || fullUrl.includes("/serie/") || fullUrl.includes("/movies/")) {
+        results.push({ title: title.trim(), url: fullUrl });
+      }
     }
+  }
+  
+  return results;
+}
   }
   
   // Fallback: simpler link pattern
