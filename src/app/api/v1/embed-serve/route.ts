@@ -136,6 +136,25 @@ export async function GET(req: NextRequest) {
         },
       },
       {
+        name: "Cuevana",
+        fn: async () => {
+          const res = await searchCuevana(query);
+          let match = findExactMatch(res);
+          let targetUrl = match?.url || "";
+          if (!match) {
+            targetUrl = type === "movie"
+              ? `https://cuevana.biz/pelicula/${slugTitle}/`
+              : `https://cuevana.biz/serie/${slugTitle}/temporada/${season}/capitulo/${episode}`;
+          } else if (type !== "movie") {
+            const epUrl = await getCuevanaEpisodeUrl(match.url, season, episode);
+            if (epUrl) targetUrl = epUrl; else return [];
+          }
+          if (!targetUrl) return [];
+          const sources = await getCuevanaSources(targetUrl);
+          return sources.map((s: any) => ({ ...s, lang: s.lang === "latino" ? "Latino" : s.lang === "spanish" ? "Castellano" : "Sub" }));
+        },
+      },
+      {
         name: "Gnula",
         fn: async () => {
           const res = await searchGnula(query);
