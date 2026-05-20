@@ -219,6 +219,16 @@ export async function GET(req: NextRequest) {
       results.largeScripts = scriptMatch.filter(s => s.length > 500).slice(0, 3).map(s => s.substring(0, 1000));
     }
 
+    if (action === "vidurl_f") {
+      const vidId = searchParams.get("id") || "tt0372784";
+      const url = `https://pelispedia.mov/f/${vidId}/`;
+      const html = await readPage(url, { Referer: `https://pelispedia.mov/vidurl/${vidId}/` }, true);
+      results.url = url;
+      results.htmlLength = html.length;
+      results.preview = html.substring(0, 5000);
+      results.isJson = html.trim().startsWith("{") || html.trim().startsWith("[");
+    }
+
     return NextResponse.json({ success: true, results });
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e.message, results });
