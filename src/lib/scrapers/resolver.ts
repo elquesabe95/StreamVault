@@ -161,6 +161,12 @@ export async function resolveStream(url: string): Promise<string | string[]> {
       html = await readPage(url, extraHeaders, true);
     }
 
+    // If still too short, embed69 blocked all approaches
+    if ((!html || html.length < 500) && url.includes("embed69.org")) {
+      console.log(`[Resolver] All methods blocked for embed69, skipping`);
+      return url;
+    }
+
     if (!html || html.length < 200) {
       console.warn(`[Resolver] Empty/short response for ${url}`);
       return url;

@@ -1,4 +1,6 @@
 import { spawnSync } from "child_process";
+import https from "https";
+import http from "http";
 
 function buildHeaders(customHeaders?: Record<string, string>): Record<string, string> {
   return {
@@ -25,6 +27,40 @@ async function tryFetch(url: string, headers: Record<string, string>, timeout: n
     }
   } catch {}
   return "";
+}
+
+function tryNative(url: string, headers: Record<string, string>, timeout: number): Promise<string> {
+  return new Promise((resolve) => {
+    try {
+      const u = new URL(url);
+      const mod = u.protocol === "https:" ? https : http;
+      const opts = {
+        hostname: u.hostname,
+        port: u.port || (u.protocol === "https:" ? 443 : 80),
+        path: u.pathname + u.search,
+        method: "GET",
+        headers: { ...headers, Host: u.hostname },
+        timeout,
+        rejectUnauthorized: false,
+      };
+      const req = mod.request(opts, (res) => {
+        let data = "";
+        res.on("data", (chunk: string) => data += chunk);
+        res.on("end", () => {
+          if (data.length > 500 && res.statusCode && res.statusCode >= 200 && res.statusCode < 400) {
+            resolve(data);
+          } else {
+            resolve("");
+          }
+        });
+      });
+      req.on("error", () => resolve(""));
+      req.on("timeout", () => { req.destroy(); resolve(""); });
+      req.end();
+    } catch {
+      resolve("");
+    }
+  });
 }
 
 function tryCurl(url: string, headers: Record<string, string>): string {
@@ -109,10 +145,23 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
     return "";
   }
 
-  // No proxy requested — try direct then curl
-  let html = await tryFetch(freshUrl, headers, 4000);
+  // No proxy requested — try direct then curl then native
+  let html = await tryFetch(freshUrl, headers, 6000);
   if (html && !isCloudflareChallenge(html)) {
     console.log(`[readPage] Direct (${html.length}b): ${url.substring(0, 60)}`);
+    return html;
+  }
+  if (html) console.warn(`[readPage] Cloudflare detected on direct`);
+
+  html = tryCurl(freshUrl, headers);
+  if (html && !isCloudflareChallenge(html)) {
+    console.log(`[readPage] curl (${html.length}b)`);
+    return html;
+  }
+
+  html = await tryNative(freshUrl, headers, 6000);
+  if (html && !isCloudflareChallenge(html)) {
+    console.log(`[readPage] Native (${html.length}b): ${url.substring(0, 60)}`);
     return html;
   }
   if (html) console.warn(`[readPage] Cloudflare detected on direct`);
