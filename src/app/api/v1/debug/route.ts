@@ -193,6 +193,26 @@ export async function GET(req: NextRequest) {
       results.apiSearch = a4.substring(0, 500);
     }
 
+    if (action === "vidurl") {
+      const vidId = searchParams.get("id") || "tt0372784";
+      const url = `https://pelispedia.mov/vidurl/${vidId}/`;
+      const html = await readPage(url, {}, true);
+      results.url = url;
+      results.htmlLength = html.length;
+      results.bodyStart = html.substring(html.indexOf("<body"), Math.min(html.length, html.indexOf("<body") + 5000));
+      const iframes: string[] = [];
+      const iframeRegex = /<iframe[^>]+src=["']([^"']+)["']/gi;
+      let m;
+      while ((m = iframeRegex.exec(html)) !== null) {
+        iframes.push(m[1]);
+      }
+      results.iframes = iframes;
+      // Check for data attributes
+      results.dataUrls = (html.match(/data-(?:url|src|link|embed)=["']([^"']+)["']/gi) || []).slice(0, 10);
+      // Check for script variables with URLs
+      results.scriptUrls = (html.match(/(?:src|url|link|file)\s*[:=]\s*["'](https?:[^"']+)["']/gi) || []).slice(0, 10);
+    }
+
     return NextResponse.json({ success: true, results });
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e.message, results });
