@@ -207,10 +207,16 @@ export async function GET(req: NextRequest) {
         iframes.push(m[1]);
       }
       results.iframes = iframes;
-      // Check for data attributes
       results.dataUrls = (html.match(/data-(?:url|src|link|embed)=["']([^"']+)["']/gi) || []).slice(0, 10);
-      // Check for script variables with URLs
       results.scriptUrls = (html.match(/(?:src|url|link|file)\s*[:=]\s*["'](https?:[^"']+)["']/gi) || []).slice(0, 10);
+      // JWT / server data patterns
+      results.hasDataLink = /dataLink/i.test(html);
+      results.dataLinkMatches = (html.match(/dataLink[^;]*;/gi) || []).slice(0, 5);
+      results.serverData = (html.match(/(?:servers|embeds|sources)\s*[:=]\s*(\[[^\]]*\])/gi) || []).slice(0, 5);
+      // Check for script tags with large JSON
+      const scriptMatch = html.match(/<script[^>]*>([\s\S]*?)<\/script>/gi) || [];
+      results.scriptCount = scriptMatch.length;
+      results.largeScripts = scriptMatch.filter(s => s.length > 500).slice(0, 3).map(s => s.substring(0, 1000));
     }
 
     return NextResponse.json({ success: true, results });
