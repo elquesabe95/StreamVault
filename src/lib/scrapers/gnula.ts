@@ -29,18 +29,6 @@ export async function searchGnula(query: string) {
   
   return results;
 }
-  }
-  
-  // Fallback: simpler pattern
-  if (results.length === 0) {
-    const simpleRegex = /<article[^>]+class="[^"]*bs[^"]*"[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>[\s\S]*?<h2[^>]*>([^<]+)<\/h2>/gi;
-    while ((match = simpleRegex.exec(html)) !== null) {
-      results.push({ title: match[2].trim(), url: match[1] });
-    }
-  }
-  
-  return results;
-}
 
 export async function getGnulaSources(pageUrl: string): Promise<GnulaSource[]> {
   const html = await readPage(pageUrl, {}, true);

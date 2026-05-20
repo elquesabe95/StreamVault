@@ -63,12 +63,6 @@ export async function searchCuevana(query: string) {
   
   return results;
 }
-    }
-    if (results.length > 0) break;
-  }
-  
-  return results;
-}
 
 /**
  * Extract sources from Cuevana

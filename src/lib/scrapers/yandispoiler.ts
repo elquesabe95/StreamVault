@@ -42,18 +42,6 @@ export async function searchYandi(query: string) {
   
   return results;
 }
-  }
-  
-  // Fallback: simpler article pattern (WordPress theme)
-  if (results.length === 0) {
-    const articleRegex = /<article[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*title="([^"]+)"[^>]*>/gi;
-    while ((match = articleRegex.exec(html)) !== null) {
-      results.push({ title: match[2].trim(), url: match[1] });
-    }
-  }
-  
-  return results;
-}
 
 export async function getYandiSources(pageUrl: string): Promise<YandiSource[]> {
   const html = await readPage(pageUrl, {}, true);
