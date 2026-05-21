@@ -171,43 +171,30 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
       if (vidHtml && vidHtml.length > 500) {
         const seen = new Set<string>();
 
-        // 1. Try the /f/ API endpoint (returns JSON with server data)
-        const imdbId = s.url.match(/vidurl\/(tt\d+)/)?.[1];
-        if (imdbId) {
-          const apiUrl = `https://pelispedia.mov/f/${imdbId}/`;
-          const apiHtml = await readPage(apiUrl, { Referer: s.url }, true);
-          if (apiHtml && apiHtml.length > 200) {
-            // Try to extract embed URLs from the API response
-            const embedRegex = /(?:url|link|embed|src)\s*[:=]\s*["'](https?:\/\/[^"']+\.(?:com|net|org|to|sx|cc|me|biz|icu)\/[^"']*)["']/gi;
-            let m;
-            while ((m = embedRegex.exec(apiHtml)) !== null) {
-              const u = m[1];
-              if (u.includes('.js') || u.includes('.png') || u.includes('.jpg') || u.includes('.ico') || u.includes('.css') || u.includes('google') || deadHosts.test(u)) continue;
-              if (seen.has(u)) continue;
-              seen.add(u);
-              vidCount++;
-              expanded.push({ server: `Servidor ${vidCount}`, url: u, lang: "latino" });
+        // Extract dataLink JSON and decode JWT tokens
+        const dlRegex = /(?:let|const|var)\s+dataLink\s*=\s*(\[[\s\S]*?\]);/;
+        const dlMatch = dlRegex.exec(vidHtml);
+        if (dlMatch) {
+          try {
+            const parsed = JSON.parse(dlMatch[1]);
+            for (const file of parsed) {
+              const embeds = file.sortedEmbeds || file.embeds || [];
+              for (const embed of embeds) {
+                const link = decodeJwtLink(embed.link || embed.url || "");
+                if (link && !seen.has(link)) {
+                  seen.add(link);
+                  vidCount++;
+                  expanded.push({ 
+                    server: embed.servername || `Servidor ${vidCount}`, 
+                    url: link, 
+                    lang: file.video_language === "LAT" ? "latino" : file.video_language === "ESP" ? "spanish" : "subbed"
+                  });
+                }
+              }
             }
-          }
-        }
-
-        // 2. Extract from <script> tags (server data embedded in JS)
-        if (vidCount === 0) {
-          const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
-          let sm;
-          while ((sm = scriptRegex.exec(vidHtml)) !== null) {
-            const script = sm[1];
-            // Look for server URLs in JavaScript
-            const urlRegex = /["'](https?:\/\/[^"']*(?:embed|player|stream|voe|hglink|dood|filemoon|streamtape|mixdrop|uqload|vidcloud|vidplay)[^"']*)["']/gi;
-            let um;
-            while ((um = urlRegex.exec(script)) !== null) {
-              const u = um[1];
-              if (u.includes('.js') || u.includes('.png') || u.includes('.css') || deadHosts.test(u)) continue;
-              if (seen.has(u)) continue;
-              seen.add(u);
-              vidCount++;
-              expanded.push({ server: `Servidor ${vidCount}`, url: u, lang: "latino" });
-            }
+            console.log(`[PelisPedia] Vidurl JWT: ${vidCount} servers decoded`);
+          } catch (e) {
+            console.warn(`[PelisPedia] Vidurl JWT parse failed:`, (e as Error).message);
           }
         }
 
