@@ -246,7 +246,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      _v: 6,
+      _v: 7,
       data: { type, ...metadata, sources: safeSources },
     });
 
