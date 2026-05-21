@@ -283,8 +283,8 @@ export async function resolveStream(url: string): Promise<string | string[]> {
       }
     }
 
-    // --- Master Embeds (Embed69, APiAlfa, SuperEmbed, etc.) ---
-    if (/(?:embed69|apialfa|superembed|embed\.|moe\.|embeds\.)/.test(url)) {
+    // --- Master Embeds (Embed69, APiAlfa, SuperEmbed, PelisPedia vidurl, etc.) ---
+    if (/(?:embed69|apialfa|superembed|embed\.|moe\.|embeds\.|pelispedia\.mov\/vidurl\/)/.test(url)) {
       // Try bracket parser first (fast, O(n))
       const bracketData = extractDataLinkBrackets(html);
       if (bracketData) {

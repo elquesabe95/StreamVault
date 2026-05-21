@@ -158,65 +158,7 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
    
    // Filter out known dead hosts
    const deadHosts = /minochinos|earnvids|short\.icu/i;
-   const filtered = sources.filter(s => !deadHosts.test(s.url));
-
-   // Expand vidurl internal player pages
-   const expanded: PelisSource[] = [];
-   for (const s of filtered) {
-     if (s.url.includes("pelispedia.mov/vidurl/")) {
-       console.log(`[PelisPedia] Following vidurl: ${s.url}`);
-       const vidHtml = await readPage(s.url, {}, true);
-       let vidCount = 0;
-
-       if (vidHtml && vidHtml.length > 500) {
-         const dlIdx = vidHtml.indexOf('dataLink');
-         if (dlIdx >= 0) {
-           let depth = 0, endIdx = -1;
-           const bracketStart = vidHtml.indexOf('[', dlIdx);
-           if (bracketStart >= 0) {
-             for (let i = bracketStart; i < vidHtml.length; i++) {
-               if (vidHtml[i] === '[') depth++;
-               else if (vidHtml[i] === ']') depth--;
-               if (depth === 0) { endIdx = i; break; }
-             }
-           }
-           if (endIdx >= 0) {
-             try {
-               const parsed = JSON.parse(vidHtml.substring(bracketStart, endIdx + 1));
-               const seen = new Set<string>();
-               for (const file of parsed) {
-                 const embeds = file.sortedEmbeds || file.embeds || [];
-                 for (const embed of embeds) {
-                   const link = decodeJwtLink(embed.link || embed.url || "");
-                   if (link && !seen.has(link)) {
-                     seen.add(link);
-                     vidCount++;
-                     expanded.push({ 
-                       server: embed.servername || `Servidor ${vidCount}`, 
-                       url: link, 
-                       lang: file.video_language === "LAT" ? "latino" : file.video_language === "ESP" ? "spanish" : "subbed"
-                     });
-                   }
-                 }
-               }
-               console.log(`[PelisPedia] Vidurl JWT: ${vidCount} servers decoded`);
-             } catch (e) {
-               console.warn(`[PelisPedia] Vidurl JWT parse failed:`, (e as Error).message);
-             }
-           }
-         }
-         console.log(`[PelisPedia] Vidurl expanded to ${vidCount} servers`);
-       }
-       
-       if (vidCount === 0) {
-         expanded.push(s); // fallback
-       }
-     } else {
-       expanded.push(s);
-     }
-   }
-
-   return expanded;
+   return sources.filter(s => !deadHosts.test(s.url));
  }
 
 /**
