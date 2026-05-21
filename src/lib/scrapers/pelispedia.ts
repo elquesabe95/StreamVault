@@ -172,7 +172,7 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
         const seen = new Set<string>();
 
         // Extract dataLink JSON and decode JWT tokens
-        const dlRegex = /(?:let|const|var)\s+dataLink\s*=\s*(\[[\s\S]*?\]);/;
+        const dlRegex = /dataLink\s*=\s*(\[[\s\S]*?\]);/;
         const dlMatch = dlRegex.exec(vidHtml);
         if (dlMatch) {
           try {
