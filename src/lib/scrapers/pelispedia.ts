@@ -166,52 +166,58 @@ export async function getPelispediaSources(pageUrl: string): Promise<PelisSource
     if (s.url.includes("pelispedia.mov/vidurl/")) {
       console.log(`[PelisPedia] Following vidurl: ${s.url}`);
       const vidHtml = await readPage(s.url, {}, true);
+      let vidCount = 0;
+
       if (vidHtml && vidHtml.length > 500) {
         const seen = new Set<string>();
-        let vidCount = 0;
 
-        // 1. iframe tags
-        const iframeRegex = /<iframe[^>]+src=["']([^"']+)["']/gi;
-        let m;
-        while ((m = iframeRegex.exec(vidHtml)) !== null) {
-          let u = m[1];
-          if (u.startsWith("//")) u = "https:" + u;
-          else if (u.startsWith("/")) u = BASE_URL + u;
-          if (!u.startsWith("http")) continue;
-          if (u.includes('.js') || u.includes('cloudflare') || u.includes('google') || u.includes('youtube.com') || u.includes('youtu.be') || deadHosts.test(u)) continue;
-          if (seen.has(u)) continue;
-          seen.add(u);
-          vidCount++;
-          expanded.push({ server: `Servidor ${vidCount}`, url: u, lang: "latino" });
+        // 1. Try the /f/ API endpoint (returns JSON with server data)
+        const imdbId = s.url.match(/vidurl\/(tt\d+)/)?.[1];
+        if (imdbId) {
+          const apiUrl = `https://pelispedia.mov/f/${imdbId}/`;
+          const apiHtml = await readPage(apiUrl, { Referer: s.url }, true);
+          if (apiHtml && apiHtml.length > 200) {
+            // Try to extract embed URLs from the API response
+            const embedRegex = /(?:url|link|embed|src)\s*[:=]\s*["'](https?:\/\/[^"']+\.(?:com|net|org|to|sx|cc|me|biz|icu)\/[^"']*)["']/gi;
+            let m;
+            while ((m = embedRegex.exec(apiHtml)) !== null) {
+              const u = m[1];
+              if (u.includes('.js') || u.includes('.png') || u.includes('.jpg') || u.includes('.ico') || u.includes('.css') || u.includes('google') || deadHosts.test(u)) continue;
+              if (seen.has(u)) continue;
+              seen.add(u);
+              vidCount++;
+              expanded.push({ server: `Servidor ${vidCount}`, url: u, lang: "latino" });
+            }
+          }
         }
 
-        // 2. data attributes
-        const dataRegex = /data-(?:url|link|src|embed|video)=["'](https?:\/\/[^"']+)["']/gi;
-        while ((m = dataRegex.exec(vidHtml)) !== null) {
-          const u = m[1];
-          if (seen.has(u)) continue;
-          seen.add(u);
-          vidCount++;
-          expanded.push({ server: `Servidor ${vidCount}`, url: u, lang: "latino" });
-        }
-
-        // 3. JavaScript file/src variables
-        const jsRegex = /(?:file|src|url|video)\s*[:=]\s*["'](https?:\/\/[^"']+)["']/gi;
-        while ((m = jsRegex.exec(vidHtml)) !== null) {
-          const u = m[1];
-          if (u.includes('.m3u8') || u.includes('.mp4') || u.includes('embed') || u.includes('player')) {
-            if (seen.has(u)) continue;
-            seen.add(u);
-            vidCount++;
-            expanded.push({ server: `Servidor ${vidCount}`, url: u, lang: "latino" });
+        // 2. Extract from <script> tags (server data embedded in JS)
+        if (vidCount === 0) {
+          const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+          let sm;
+          while ((sm = scriptRegex.exec(vidHtml)) !== null) {
+            const script = sm[1];
+            // Look for server URLs in JavaScript
+            const urlRegex = /["'](https?:\/\/[^"']*(?:embed|player|stream|voe|hglink|dood|filemoon|streamtape|mixdrop|uqload|vidcloud|vidplay)[^"']*)["']/gi;
+            let um;
+            while ((um = urlRegex.exec(script)) !== null) {
+              const u = um[1];
+              if (u.includes('.js') || u.includes('.png') || u.includes('.css') || deadHosts.test(u)) continue;
+              if (seen.has(u)) continue;
+              seen.add(u);
+              vidCount++;
+              expanded.push({ server: `Servidor ${vidCount}`, url: u, lang: "latino" });
+            }
           }
         }
 
         console.log(`[PelisPedia] Vidurl expanded to ${vidCount} servers`);
-        if (vidCount > 0) continue;
       }
-      // Fallback: keep original vidurl
-      expanded.push(s);
+      
+      if (vidCount === 0) {
+        // Fallback: keep original vidurl
+        expanded.push(s);
+      }
     } else {
       expanded.push(s);
     }
