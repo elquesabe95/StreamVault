@@ -1,4 +1,5 @@
 import { readPage } from "./client";
+import crypto from "crypto";
 
 function videoHostRegex() {
   return /https?:\/\/(?:streamwish|filemoon|vidhide|streamtape|dood(?:stream)?|voe|waaw|upstream|wishembed|awish|embedrise|mixdrop|mp4upload|closeload|embedsito|uqload|wolfstream|speedostream|vidcloud|vidnode|vidplay|vidsrc)\.[a-z]+\/[^\s"'<>]+/g;
@@ -99,6 +100,141 @@ function extractDataLinkBrackets(html: string): any[] | null {
   }
 }
 
+function sha256(str: string): string {
+  return crypto.createHash("sha256").update(str).digest("hex");
+}
+
+function sha256Bytes(str: string): Buffer {
+  return crypto.createHash("sha256").update(str).digest();
+}
+
+function decryptAES(encryptedBase64: string, aesKeyBytes: Buffer): string | null {
+  try {
+    const raw = Buffer.from(encryptedBase64, "base64");
+    const iv = raw.subarray(0, 16);
+    const ciphertext = raw.subarray(16);
+    const key = aesKeyBytes.subarray(0, 32);
+    const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+    let decrypted = decipher.update(ciphertext, null, "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function solvePoW(challenge: string, difficulty: number, salt: string): Promise<Buffer> {
+  const prefix = "0".repeat(difficulty);
+  let nonce = 0;
+  while (true) {
+    const hash = sha256(challenge + nonce);
+    if (hash.startsWith(prefix)) {
+      return sha256Bytes(challenge + nonce + salt);
+    }
+    nonce++;
+  }
+}
+
+async function resolveMasterEmbed(html: string): Promise<string[]> {
+  const jwtLinks: string[] = [];
+  
+  // Try bracket parser first (fast, O(n))
+  const bracketData = extractDataLinkBrackets(html);
+  
+  // Try to solve PoW if parameters are present
+  const challengeMatch = /const\s+POW_CHALLENGE\s*=\s*['"]([^'"]+)['"]/.exec(html);
+  const diffMatch = /const\s+POW_DIFFICULTY\s*=\s*(\d+)/.exec(html);
+  const saltMatch = /const\s+POW_SALT\s*=\s*['"]([^'"]+)['"]/.exec(html);
+  
+  let aesKeyBytes: Buffer | null = null;
+  if (challengeMatch && diffMatch && saltMatch) {
+    const challenge = challengeMatch[1];
+    const difficulty = parseInt(diffMatch[1]);
+    const salt = saltMatch[1];
+    console.log(`[Resolver] Solving PoW: challenge=${challenge}, difficulty=${difficulty}, salt=${salt}`);
+    const start = Date.now();
+    try {
+      aesKeyBytes = await solvePoW(challenge, difficulty, salt);
+      console.log(`[Resolver] PoW solved in ${Date.now() - start}ms`);
+    } catch (e) {
+      console.error("[Resolver] PoW solver failed", e);
+    }
+  }
+
+  if (bracketData) {
+    for (const file of bracketData) {
+      const embeds = file.sortedEmbeds || file.embeds || [];
+      for (const embed of embeds) {
+        const rawLink = embed.link || embed.url || "";
+        if (rawLink) {
+          let link: string | null = null;
+          if (rawLink.includes(".")) {
+            link = decodeJwtLink(rawLink);
+          } else if (aesKeyBytes) {
+            link = decryptAES(rawLink, aesKeyBytes);
+          }
+          if (link) jwtLinks.push(link);
+        }
+      }
+    }
+  }
+
+  // Fallback: JWT dataLink regex — handles both array and nested object formats
+  const dlRegex = /(?:let|const|var)\s+dataLink\s*=\s*(\[[\s\S]*?\]|\{[\s\S]*\});/;
+  const dataLinkMatch = dlRegex.exec(html);
+
+  if (dataLinkMatch && jwtLinks.length === 0) {
+    try {
+      const parsed = JSON.parse(dataLinkMatch[1]);
+      let embeds: any[] = [];
+      if (parsed.data?.embeds) {
+        embeds = parsed.data.embeds;
+      } else if (Array.isArray(parsed)) {
+        for (const file of parsed) {
+          embeds.push(...(file.sortedEmbeds || file.embeds || []));
+        }
+      }
+      
+      for (const embed of embeds) {
+        const rawLink = embed.link || embed.url || "";
+        if (rawLink) {
+          let link: string | null = null;
+          if (rawLink.includes(".")) {
+            link = decodeJwtLink(rawLink);
+          } else if (aesKeyBytes) {
+            link = decryptAES(rawLink, aesKeyBytes);
+          }
+          if (link) jwtLinks.push(link);
+        }
+      }
+    } catch (e) {
+      console.warn("[Resolver] dataLink parse failed", (e as Error).message);
+    }
+  }
+
+  // Fallback to generic URL patterns if no JWT/AES links resolved
+  if (jwtLinks.length === 0) {
+    const allUrls = new Set<string>();
+    const linkPatterns = [
+      /["'](?:link|url|remote|src|embed)["']\s*:\s*["'](https?:\/\/[^"']+)["']/g,
+      /data-link=["'](https?:\/\/[^"']+)["']/g,
+      /data-url=["'](https?:\/\/[^"']+)["']/g,
+      /data-src=["'](https?:\/\/[^"']+)["']/g,
+    ];
+    for (const pattern of linkPatterns) {
+      for (const m of html.matchAll(pattern)) {
+        const found = m[1];
+        if (!found.includes('cloudflare') && !found.includes('google')) {
+          allUrls.add(found);
+        }
+      }
+    }
+    return [...allUrls];
+  }
+
+  return [...new Set(jwtLinks)];
+}
+
 function findMp4InText(text: string): string | null {
   const patterns = [
     /["'](https?:\/\/[^"'\s<>]+?\.mp4[^"'\s<>]*)["']/,
@@ -153,10 +289,29 @@ export async function resolveStream(url: string): Promise<string | string[]> {
     // PelisPedia uses /vidurl/ internal player — follow it
     if (url.includes("pelispedia.mov/vidurl/")) {
       extraHeaders["Referer"] = "https://pelispedia.mov/";
-      const vidHtml = await readPage(url, extraHeaders, false);
+      let vidHtml = await readPage(url, extraHeaders, false);
+      if (!vidHtml || vidHtml.length < 500) {
+        console.log(`[Resolver] Direct failed for pelispedia vidurl, retrying via proxy...`);
+        vidHtml = await readPage(url, extraHeaders, true);
+      }
       if (vidHtml && vidHtml.length > 500) {
         console.log(`[Resolver] Following PelisPedia vidurl (${vidHtml.length}b)`);
-        // Extract iframe sources from the vidurl page
+        // Check for dataLink first (new AES/JWT schema)
+        if (vidHtml.includes("dataLink")) {
+          const decryptedLinks = await resolveMasterEmbed(vidHtml);
+          if (decryptedLinks.length > 0) {
+            console.log(`[Resolver] Decrypted ${decryptedLinks.length} servers in vidurl page`);
+            const resolved = await Promise.all(decryptedLinks.map(u => resolveStream(u).catch(() => u)));
+            const all: string[] = [];
+            for (const r of resolved) {
+              if (Array.isArray(r)) all.push(...r);
+              else all.push(r);
+            }
+            return [...new Set(all)];
+          }
+        }
+
+        // Otherwise extract iframe sources (old fallback)
         const foundUrls: string[] = [];
         const iframeRegex = /<iframe[^>]+src=["']([^"']+)["']/gi;
         let m;
@@ -170,7 +325,6 @@ export async function resolveStream(url: string): Promise<string | string[]> {
         }
         if (foundUrls.length > 0) {
           console.log(`[Resolver] Found ${foundUrls.length} embeds in vidurl page`);
-          // Recursively resolve these
           const resolved = await Promise.all(foundUrls.map(u => resolveStream(u).catch(() => u as string)));
           const all: string[] = [];
           for (const r of resolved) {
@@ -285,76 +439,10 @@ export async function resolveStream(url: string): Promise<string | string[]> {
 
     // --- Master Embeds (Embed69, APiAlfa, SuperEmbed, PelisPedia vidurl, etc.) ---
     if (/(?:embed69|apialfa|superembed|embed\.|moe\.|embeds\.|pelispedia\.mov\/vidurl\/)/.test(url)) {
-      // Try bracket parser first (fast, O(n))
-      const bracketData = extractDataLinkBrackets(html);
-      if (bracketData) {
-        const jwtLinks: string[] = [];
-        for (const file of bracketData) {
-          const embeds = file.sortedEmbeds || file.embeds || [];
-          for (const embed of embeds) {
-            const link = decodeJwtLink(embed.link || embed.url || "");
-            if (link) jwtLinks.push(link);
-          }
-        }
-        if (jwtLinks.length > 0) {
-          console.log(`[Resolver] Extracted ${jwtLinks.length} JWT servers (bracket parser)`);
-          return [...new Set(jwtLinks)];
-        }
-      }
-
-      // JWT dataLink regex — handles both array and nested object formats
-      const dlRegex = /(?:let|const|var)\s+dataLink\s*=\s*(\[[\s\S]*?\]|\{[\s\S]*\});/;
-      const dataLinkMatch = dlRegex.exec(html);
-
-      if (dataLinkMatch) {
-        try {
-          const parsed = JSON.parse(dataLinkMatch[1]);
-          const jwtLinks: string[] = [];
-          
-          // Handle object format: {data: {embeds: [...]}}
-          let embeds: any[] = [];
-          if (parsed.data?.embeds) {
-            embeds = parsed.data.embeds;
-          } else if (Array.isArray(parsed)) {
-            // Handle array format: [...]
-            for (const file of parsed) {
-              embeds.push(...(file.sortedEmbeds || file.embeds || []));
-            }
-          }
-          
-          for (const embed of embeds) {
-            const link = decodeJwtLink(embed.link || embed.url || "");
-            if (link) jwtLinks.push(link);
-          }
-          
-          if (jwtLinks.length > 0) {
-            console.log(`[Resolver] Extracted ${jwtLinks.length} JWT servers`);
-            return [...new Set(jwtLinks)];
-          }
-        } catch (e) {
-          console.warn("[Resolver] dataLink parse failed", (e as Error).message);
-        }
-      }
-
-      // Any link/url/server patterns
-      const allUrls = new Set<string>();
-      const linkPatterns = [
-        /["'](?:link|url|remote|src|embed)["']\s*:\s*["'](https?:\/\/[^"']+)["']/g,
-        /data-link=["'](https?:\/\/[^"']+)["']/g,
-        /data-url=["'](https?:\/\/[^"']+)["']/g,
-        /data-src=["'](https?:\/\/[^"']+)["']/g,
-      ];
-      for (const pattern of linkPatterns) {
-        for (const m of html.matchAll(pattern)) {
-          const found = m[1];
-          if (!found.includes('cloudflare') && !found.includes('google')) {
-            allUrls.add(found);
-          }
-        }
-      }
-      if (allUrls.size > 0) {
-        console.log(`[Resolver] Extracted ${allUrls.size} server URLs`);
-        return [...allUrls];
+      const decryptedLinks = await resolveMasterEmbed(html);
+      if (decryptedLinks.length > 0) {
+        console.log(`[Resolver] Extracted ${decryptedLinks.length} servers from Master Embed`);
+        return decryptedLinks;
       }
     }
 
