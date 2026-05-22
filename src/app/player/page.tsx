@@ -6,6 +6,7 @@ import {
   Maximize, Minimize, X, ChevronDown, Clock, Tv, Film,
   AlertCircle, Loader2, ExternalLink,
 } from "lucide-react";
+import Player from "@/components/Player";
 
 /* ──────────────────────────────────────────────
    STREAMVAULT EMBED PLAYER — Netflix Style
@@ -497,17 +498,23 @@ export default function PlayerPage() {
         </div>
       )}
 
-      {/* ── IFRAME PLAYER ── */}
+      {/* ── VIDEO PLAYER / IFRAME FALLBACK ── */}
       {!loading && activeSource && (
-        <iframe
-          key={iframeKey}
-          src={activeSource}
-          className="absolute inset-0 w-full h-full"
-          allowFullScreen
-          allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-          style={{ border: "none" }}
-          title={`${data?.title || "Player"} - Streamix`}
-        />
+        activeSource.includes(".m3u8") || activeSource.includes(".mp4") ? (
+          <div className="absolute inset-0 w-full h-full z-10">
+            <Player url={activeSource} title={data?.title} />
+          </div>
+        ) : (
+          <iframe
+            key={iframeKey}
+            src={activeSource}
+            className="absolute inset-0 w-full h-full"
+            allowFullScreen
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            style={{ border: "none" }}
+            title={`${data?.title || "Player"} - Streamix`}
+          />
+        )
       )}
 
       {/* ── PRE-ROLL AD OVERLAY ── */}
