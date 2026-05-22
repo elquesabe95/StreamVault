@@ -341,16 +341,10 @@ export async function resolveStream(url: string): Promise<string | string[]> {
     }
     let html = await readPage(url, extraHeaders, needsProxy);
 
-    // If direct failed (too short), retry with proxy
-    if ((!html || html.length < 500) && url.includes("embed69.org")) {
-      console.log(`[Resolver] Direct failed for embed69, retrying via proxy...`);
+    // If direct failed or was blocked (too short), retry with proxy for any URL to maximize direct stream extraction
+    if (!html || html.length < 1000) {
+      console.log(`[Resolver] Direct failed or returned short response (${html?.length || 0}b), retrying via proxy for: ${url}`);
       html = await readPage(url, extraHeaders, true);
-    }
-
-    // If still too short, embed69 blocked all approaches
-    if ((!html || html.length < 500) && url.includes("embed69.org")) {
-      console.log(`[Resolver] All methods blocked for embed69, skipping`);
-      return url;
     }
 
     if (!html || html.length < 200) {
