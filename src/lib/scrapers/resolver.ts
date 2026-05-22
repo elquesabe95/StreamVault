@@ -115,7 +115,7 @@ function decryptAES(encryptedBase64: string, aesKeyBytes: Buffer): string | null
     const ciphertext = raw.subarray(16);
     const key = aesKeyBytes.subarray(0, 32);
     const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
-    let decrypted = decipher.update(ciphertext, null, "utf8");
+    let decrypted = decipher.update(ciphertext, undefined, "utf8");
     decrypted += decipher.final("utf8");
     return decrypted;
   } catch (e) {

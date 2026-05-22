@@ -3,6 +3,7 @@
 // It uses the WordPress REST API and page scraping to build a channel database
 
 import { readJson, readPage } from "./scrapers/client";
+import zai from "z-ai-web-dev-sdk";
 
 const BASE_URL = "https://teleonline.org";
 
@@ -418,8 +419,8 @@ export async function getChannelEPG(postId: number): Promise<{
   }>;
 }> {
   try {
-    const zai = await ZAI.create();
-    const result = await zai.functions.invoke("page_reader", {
+    const zaiInstance = await zai.create();
+    const result = await zaiInstance.functions.invoke("page_reader", {
       url: `${BASE_URL}/wp-json/teleonline/v1/channel/${postId}`,
     });
 
@@ -471,7 +472,6 @@ function getCountryCode(slug: string): string {
     japon: "jp",
     china: "cn",
     india: "in",
-    brasil: "br",
     canada: "ca",
     australia: "au",
   };

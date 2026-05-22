@@ -92,7 +92,7 @@ async function syncChannelsGlobal() {
       readJson<any[]>(`${API_BASE}/logos.json`),
     ]);
 
-    if (Array.isArray(channels) && Array.isArray(streams)) {
+    if (Array.isArray(channels) && Array.isArray(streams) && Array.isArray(logos)) {
       const logoMap = new Map(logos.map(l => [l.channel, l.url]));
       const channelMap = new Map(channels.map(c => [c.id, c]));
       const targetCountries = ["AR", "BO", "CL", "CO", "CR", "CU", "DO", "EC", "SV", "GT", "HN", "MX", "NI", "PA", "PY", "PE", "PR", "ES", "UY", "VE"];
