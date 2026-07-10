@@ -20,10 +20,11 @@ function getPlaybackType(url: string): PlaybackType {
   return "iframe";
 }
 
-// ── In-memory cache ────────────────────────────────────────────────────────────
+// ── In-memory cache — version-stamped so deploys start fresh ──────────────────
+const CACHE_VERSION = "v10";
 interface CacheEntry { sources: any[]; ts: number }
 const cache = new Map<string, CacheEntry>();
-const CACHE_TTL = 25 * 60 * 1000;
+const CACHE_TTL = 20 * 60 * 1000; // 20 min
 
 function getCached(key: string): any[] | null {
   const e = cache.get(key);
@@ -32,6 +33,7 @@ function getCached(key: string): any[] | null {
   return e.sources;
 }
 function setCached(key: string, sources: any[]) {
+  if (sources.length === 0) return; // never cache empty results
   if (cache.size > 200) {
     const oldest = [...cache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0];
     if (oldest) cache.delete(oldest[0]);
@@ -39,55 +41,44 @@ function setCached(key: string, sources: any[]) {
   cache.set(key, { sources, ts: Date.now() });
 }
 
-// ── Two-level resolver (mirrors the /scraper route's resolveToPlayableUrls) ───
-// Level 1: resolve the raw scraper URL (e.g. vidurl → array of embed iframes)
-// Level 2: resolve each remaining iframe (e.g. streamwish → m3u8)
-async function resolveDeep(url: string, ms = 4500): Promise<string[]> {
-  if (/minochinos|short\.icu|earnvids/i.test(url)) return [];
-
-  const timer = <T>(t: number, v: T): Promise<T> => new Promise(r => setTimeout(() => r(v), t));
+// ── Two-level resolver — mirrors /scraper's resolveToPlayableUrls exactly ─────
+// No per-step timeouts here; the provider-level timeout wraps everything.
+async function resolveToPlayable(rawUrl: string): Promise<string[]> {
+  if (/minochinos|short\.icu|earnvids/i.test(rawUrl)) return [];
 
   // Level 1
-  const first = await Promise.race([
-    resolveStream(url).catch((): string => url),
-    timer(ms, url as string),
-  ]);
-  const firstUrls: string[] = Array.isArray(first) ? first.slice(0, 10) : [first as string];
+  const first = await resolveStream(rawUrl).catch(() => rawUrl);
+  const firstUrls: string[] = Array.isArray(first) ? first.slice(0, 10) : [first];
 
-  // Level 2: for any result that is still an iframe, try to extract a stream
-  const playable: string[] = [];
-  await Promise.all(
+  // Level 2: for iframes, try one more resolution pass in parallel
+  const results = await Promise.all(
     firstUrls.map(async (u) => {
-      if (/minochinos|short\.icu|earnvids/i.test(u)) return;
-      const pt = /\.m3u8(?:[?#]|$)/i.test(u) ? "hls" : /\.mp4(?:[?#]|$)/i.test(u) ? "mp4" : "iframe";
-      if (pt !== "iframe") { playable.push(u); return; }
-      // Pass known iframe-only hosts through unchanged
-      if (/voe\.sx|hglink\.to/i.test(u)) { playable.push(u); return; }
-      const second = await Promise.race([
-        resolveStream(u).catch((): string => u),
-        timer(ms, u as string),
-      ]);
-      const secondUrls: string[] = Array.isArray(second) ? second.slice(0, 5) : [second as string];
-      playable.push(...secondUrls);
+      if (/minochinos|short\.icu|earnvids/i.test(u)) return [];
+      const pt = getPlaybackType(u);
+      if (pt !== "iframe") return [u]; // already a stream
+      // Pass known iframe-only hosts through
+      if (/voe\.sx|hglink\.to/i.test(u)) return [u];
+      const second = await resolveStream(u).catch(() => u);
+      return Array.isArray(second) ? second.slice(0, 5) : [second];
     })
   );
 
-  return [...new Set(playable)].slice(0, 12);
+  return [...new Set(results.flat())].slice(0, 15);
 }
 
 export async function GET(req: NextRequest) {
   const start = Date.now();
-
   try {
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type") || "movie";
     const id = parseInt(searchParams.get("id") || "0");
     const season = parseInt(searchParams.get("season") || "1");
     const episode = parseInt(searchParams.get("episode") || "1");
+    const nocache = searchParams.get("nocache") === "1";
 
     if (!id) return NextResponse.json({ success: false, message: "id requerido" }, { status: 400 });
 
-    const cacheKey = `${type}:${id}:${season}:${episode}`;
+    const cacheKey = `${CACHE_VERSION}:${type}:${id}:${season}:${episode}`;
 
     // ── 1. TMDB metadata ──────────────────────────────────────────────────────
     let metadata: any = {};
@@ -116,10 +107,12 @@ export async function GET(req: NextRequest) {
     }
 
     // ── 2. Cache hit ──────────────────────────────────────────────────────────
-    const cached = getCached(cacheKey);
-    if (cached) {
-      console.log(`[EmbedServe] CACHE HIT ${metadata.title} in ${Date.now() - start}ms`);
-      return NextResponse.json({ success: true, _v: 9, cached: true, data: { type, ...metadata, sources: cached } });
+    if (!nocache) {
+      const cached = getCached(cacheKey);
+      if (cached) {
+        console.log(`[EmbedServe] CACHE HIT ${metadata.title} in ${Date.now() - start}ms`);
+        return NextResponse.json({ success: true, _v: 10, cached: true, data: { type, ...metadata, sources: cached } });
+      }
     }
 
     // ── 3. Provider definitions ───────────────────────────────────────────────
@@ -226,40 +219,35 @@ export async function GET(req: NextRequest) {
       },
     ];
 
-    // ── 4. Run all providers + resolve in parallel (correct pattern) ──────────
-    // Each provider promise includes scraping AND resolving its own URLs.
-    // This means as soon as provider A finishes, its URLs start resolving
-    // WITHOUT waiting for provider B, C, D...
-    const PROVIDER_TIMEOUT = 5000;
-    const RESOLVE_TIMEOUT = 4000;
+    // ── 4. Run providers in parallel; each resolves its own sources fully ─────
+    // Timeout wraps the ENTIRE scrape+resolve for each provider.
+    // No per-step timeouts inside — that's what was killing the resolver before.
+    const PROVIDER_BUDGET = 18000; // 18 seconds (under Vercel 25s maxDuration)
 
-    const timeout = <T>(ms: number, fallback: T): Promise<T> =>
-      new Promise(r => setTimeout(() => r(fallback), ms));
+    const pTimeout = <T>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
+      Promise.race([p, new Promise<T>(r => setTimeout(() => r(fallback), ms))]);
 
     const allProviderResults = await Promise.allSettled(
-      providers.map(async p => {
-        const items: RawItem[] = await Promise.race([
-          p.fn().catch((): RawItem[] => []),
-          timeout(PROVIDER_TIMEOUT, [] as RawItem[]),
-        ]);
-
-        // Immediately resolve all URLs from this provider in parallel
-        const resolved = await Promise.all(
-          items.map(async item => {
-            if (!item.url) return [];
-            const lang = item.lang === "spanish" ? "Castellano"
-              : item.lang === "subbed" ? "Sub"
-              : item.lang || "Latino";
-            const urls = await Promise.race([
-              resolveDeep(item.url, RESOLVE_TIMEOUT),
-              timeout(RESOLVE_TIMEOUT + 500, [item.url]),
-            ]);
-            return urls.map((u: string) => ({ providerName: p.name, url: u, lang }));
-          })
-        );
-
-        return resolved.flat();
-      })
+      providers.map(p =>
+        pTimeout(
+          (async () => {
+            const items: RawItem[] = await p.fn().catch(() => []);
+            const resolved = await Promise.all(
+              items.map(async (item) => {
+                if (!item.url) return [];
+                const lang = item.lang === "spanish" ? "Castellano"
+                  : item.lang === "subbed" ? "Sub"
+                  : item.lang || "Latino";
+                const urls = await resolveToPlayable(item.url);
+                return urls.map(u => ({ providerName: p.name, url: u, lang }));
+              })
+            );
+            return resolved.flat();
+          })(),
+          PROVIDER_BUDGET,
+          [] as { providerName: string; url: string; lang: string }[]
+        )
+      )
     );
 
     // ── 5. Deduplicate and sort ───────────────────────────────────────────────
@@ -281,7 +269,7 @@ export async function GET(req: NextRequest) {
     const rank: Record<PlaybackType, number> = { hls: 0, mp4: 1, iframe: 2 };
     finalSources.sort((a, b) => rank[a.playbackType as PlaybackType] - rank[b.playbackType as PlaybackType]);
 
-    // ── 6. Proxy HLS/MP4 so IP-locked CDN tokens work from browser ───────────
+    // ── 6. Proxy HLS/MP4 through our Node.js server (same AWS IP as scraper) ─
     const origin = new URL(req.url).origin;
     const proxyBase = `${origin}/api/v1/proxy`;
 
@@ -292,13 +280,15 @@ export async function GET(req: NextRequest) {
       return s;
     });
 
-    if (proxiedSources.length > 0) setCached(cacheKey, proxiedSources);
+    // Only cache if we got at least 1 direct stream
+    const hasStream = proxiedSources.some(s => s.playbackType !== "iframe");
+    if (hasStream) setCached(cacheKey, proxiedSources);
 
-    console.log(`[EmbedServe] ${metadata.title} — ${proxiedSources.length} sources in ${Date.now() - start}ms`);
+    console.log(`[EmbedServe] ${metadata.title} — ${proxiedSources.length} sources (${proxiedSources.filter(s=>s.playbackType==="hls").length} HLS) in ${Date.now() - start}ms`);
 
     return NextResponse.json({
       success: true,
-      _v: 9,
+      _v: 10,
       data: { type, ...metadata, sources: proxiedSources },
     });
 
