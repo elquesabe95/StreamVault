@@ -21,7 +21,7 @@ function getPlaybackType(url: string): PlaybackType {
 }
 
 // ── In-memory cache — version-stamped so deploys start fresh ──────────────────
-const CACHE_VERSION = "v11";
+const CACHE_VERSION = "v10";
 interface CacheEntry { sources: any[]; ts: number }
 const cache = new Map<string, CacheEntry>();
 const CACHE_TTL = 20 * 60 * 1000; // 20 min
@@ -220,32 +220,15 @@ export async function GET(req: NextRequest) {
     ];
 
     // ── 4. Race providers — return as soon as ANY provider finds HLS streams ──
-    // Hard ceiling: 8 seconds total (Vercel Hobby allows 10s max).
+    // This is the key to fast response: don't wait for all 5 providers.
+    // As soon as PelisPedia (or whoever is fastest) returns HLS, we respond.
+    // Hard ceiling: 8 seconds total (works on Vercel Hobby 10s limit).
     const RESPONSE_DEADLINE = 8000;
 
     const seen = new Set<string>();
     let count = 1;
     const finalSources: any[] = [];
     let hasDirectStream = false;
-
-    // Seed with guaranteed fallback iframes so the player never shows a blank
-    // error screen. Scraped HLS sources sort first and will play before these.
-    const fbUrls =
-      type === "movie"
-        ? [
-            `https://vidsrc.xyz/embed/movie/${id}`,
-            `https://vidsrc.to/embed/movie/${id}`,
-            `https://embed.su/embed/movie/${id}`,
-          ]
-        : [
-            `https://vidsrc.xyz/embed/tv/${id}/${season}/${episode}`,
-            `https://vidsrc.to/embed/tv/${id}/${season}/${episode}`,
-            `https://embed.su/embed/tv/${id}/${season}/${episode}`,
-          ];
-    for (const url of fbUrls) {
-      seen.add(url);
-      finalSources.push({ url, name: `Respaldo ${count++}`, lang: "EN", playbackType: "iframe" });
-    }
 
     // earlyResolve fires when we have at least one HLS source
     let earlyResolve!: () => void;
@@ -260,13 +243,10 @@ export async function GET(req: NextRequest) {
         finalSources.push({ url: u, name: `${providerName} ${count++}`, lang, playbackType: pt });
         if ((pt === "hls" || pt === "mp4") && !hasDirectStream) {
           hasDirectStream = true;
-          earlyResolve(); // ← signal: have a direct stream, respond now
+          earlyResolve(); // ← signal: we have a stream, respond now
         }
       }
     };
-
-    // After 5 s without HLS fire early with whatever we have (at least fallback iframes)
-    const midTimer = setTimeout(earlyResolve, 5000);
 
     // Fire all providers simultaneously; each signals when done
     const providerRuns = providers.map(async p => {
@@ -286,12 +266,11 @@ export async function GET(req: NextRequest) {
       } catch {}
     });
 
-    // Wait for first HLS source, 5s mid-timer, OR hard deadline
+    // Wait for first HLS source OR hard deadline
     await Promise.race([
       earlyDone,
       new Promise<void>(r => setTimeout(r, RESPONSE_DEADLINE)),
     ]);
-    clearTimeout(midTimer);
 
     // Let remaining providers keep running in background for a bit
     // (they may finish before Vercel kills the function, enriching cache)
