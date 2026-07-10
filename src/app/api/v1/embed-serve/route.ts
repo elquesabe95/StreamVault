@@ -219,52 +219,70 @@ export async function GET(req: NextRequest) {
       },
     ];
 
-    // ── 4. Run providers in parallel; each resolves its own sources fully ─────
-    // Timeout wraps the ENTIRE scrape+resolve for each provider.
-    // No per-step timeouts inside — that's what was killing the resolver before.
-    const PROVIDER_BUDGET = 18000; // 18 seconds (under Vercel 25s maxDuration)
+    // ── 4. Race providers — return as soon as ANY provider finds HLS streams ──
+    // This is the key to fast response: don't wait for all 5 providers.
+    // As soon as PelisPedia (or whoever is fastest) returns HLS, we respond.
+    // Hard ceiling: 8 seconds total (works on Vercel Hobby 10s limit).
+    const RESPONSE_DEADLINE = 8000;
 
-    const pTimeout = <T>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
-      Promise.race([p, new Promise<T>(r => setTimeout(() => r(fallback), ms))]);
-
-    const allProviderResults = await Promise.allSettled(
-      providers.map(p =>
-        pTimeout(
-          (async () => {
-            const items: RawItem[] = await p.fn().catch(() => []);
-            const resolved = await Promise.all(
-              items.map(async (item) => {
-                if (!item.url) return [];
-                const lang = item.lang === "spanish" ? "Castellano"
-                  : item.lang === "subbed" ? "Sub"
-                  : item.lang || "Latino";
-                const urls = await resolveToPlayable(item.url);
-                return urls.map(u => ({ providerName: p.name, url: u, lang }));
-              })
-            );
-            return resolved.flat();
-          })(),
-          PROVIDER_BUDGET,
-          [] as { providerName: string; url: string; lang: string }[]
-        )
-      )
-    );
-
-    // ── 5. Deduplicate and sort ───────────────────────────────────────────────
     const seen = new Set<string>();
     let count = 1;
     const finalSources: any[] = [];
+    let hasDirectStream = false;
 
-    for (const r of allProviderResults) {
-      if (r.status !== "fulfilled") continue;
-      for (const { providerName, url: u, lang } of r.value) {
+    // earlyResolve fires when we have at least one HLS source
+    let earlyResolve!: () => void;
+    const earlyDone = new Promise<void>(r => { earlyResolve = r; });
+
+    const addSources = (items: { providerName: string; url: string; lang: string }[]) => {
+      for (const { providerName, url: u, lang } of items) {
         if (!u || seen.has(u)) continue;
-        if (/minochinos|earnvids|short\.icu/i.test(u)) continue;
-        if (/youtube\.com|youtu\.be/i.test(u)) continue;
+        if (/minochinos|earnvids|short\.icu|youtube\.com|youtu\.be/i.test(u)) continue;
         seen.add(u);
-        finalSources.push({ url: u, name: `${providerName} ${count++}`, lang, playbackType: getPlaybackType(u) });
+        const pt = getPlaybackType(u);
+        finalSources.push({ url: u, name: `${providerName} ${count++}`, lang, playbackType: pt });
+        if ((pt === "hls" || pt === "mp4") && !hasDirectStream) {
+          hasDirectStream = true;
+          earlyResolve(); // ← signal: we have a stream, respond now
+        }
       }
-    }
+    };
+
+    // Fire all providers simultaneously; each signals when done
+    const providerRuns = providers.map(async p => {
+      try {
+        const items: RawItem[] = await p.fn().catch(() => []);
+        const resolved = await Promise.all(
+          items.map(async item => {
+            if (!item.url) return [];
+            const lang = item.lang === "spanish" ? "Castellano"
+              : item.lang === "subbed" ? "Sub"
+              : item.lang || "Latino";
+            const urls = await resolveToPlayable(item.url);
+            return urls.map(u => ({ providerName: p.name, url: u, lang }));
+          })
+        );
+        addSources(resolved.flat());
+      } catch {}
+    });
+
+    // Wait for first HLS source OR hard deadline
+    await Promise.race([
+      earlyDone,
+      new Promise<void>(r => setTimeout(r, RESPONSE_DEADLINE)),
+    ]);
+
+    // Let remaining providers keep running in background for a bit
+    // (they may finish before Vercel kills the function, enriching cache)
+    void Promise.race([
+      Promise.allSettled(providerRuns).then(() => {
+        if (finalSources.length > 0) {
+          const rank: Record<PlaybackType, number> = { hls: 0, mp4: 1, iframe: 2 };
+          finalSources.sort((a, b) => rank[a.playbackType as PlaybackType] - rank[b.playbackType as PlaybackType]);
+        }
+      }),
+      new Promise(r => setTimeout(r, 5000)), // max 5 more seconds background
+    ]);
 
     const rank: Record<PlaybackType, number> = { hls: 0, mp4: 1, iframe: 2 };
     finalSources.sort((a, b) => rank[a.playbackType as PlaybackType] - rank[b.playbackType as PlaybackType]);
