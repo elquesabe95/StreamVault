@@ -242,6 +242,12 @@ export async function GET(req: NextRequest) {
     // Safety net: strip dead hosts and YouTube embeds
     const safeSources = finalSources.filter(s => !/minochinos|earnvids|short\.icu/i.test(s.url) && !/youtube\.com|youtu\.be/i.test(s.url));
 
+    // Prioritize direct streams (hls > mp4) over site iframes so the client
+    // defaults to our own player whenever a direct source exists. Array.sort is
+    // stable, so provider order is preserved within each playbackType group.
+    const playbackRank: Record<PlaybackType, number> = { hls: 0, mp4: 1, iframe: 2 };
+    safeSources.sort((a, b) => playbackRank[a.playbackType as PlaybackType] - playbackRank[b.playbackType as PlaybackType]);
+
     console.log(`[EmbedServe] ${metadata.title} — ${safeSources.length} sources in ${Date.now() - start}ms`);
 
     return NextResponse.json({

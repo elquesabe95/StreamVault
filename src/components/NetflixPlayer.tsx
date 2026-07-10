@@ -20,6 +20,17 @@ interface NetflixPlayerProps {
   showLangBadge?: boolean;
 }
 
+// Prefer direct streams (our own player) over site iframes. Array.sort is
+// stable in V8, so provider order is preserved within each playbackType group.
+function sortByPlayback(list: StreamSource[]): StreamSource[] {
+  const rank = (s: StreamSource) => {
+    const t = s.playbackType ||
+      (s.url?.includes(".m3u8") ? "hls" : s.url?.includes(".mp4") ? "mp4" : "iframe");
+    return t === "hls" ? 0 : t === "mp4" ? 1 : 2;
+  };
+  return [...list].sort((a, b) => rank(a) - rank(b));
+}
+
 export default function NetflixPlayer({ sources, title, onBack, headers, showLangBadge }: NetflixPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -33,17 +44,17 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
   const [showControls, setShowControls] = useState(true);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [validSources, setValidSources] = useState<StreamSource[]>(sources);
+  const [validSources, setValidSources] = useState<StreamSource[]>(() => sortByPlayback(sources));
   const [isChecking, setIsChecking] = useState(false);
   const hlsRef = useRef<any>(null);
 
   useEffect(() => {
-    setValidSources(sources);
+    setValidSources(sortByPlayback(sources));
     setCurrentIndex(0);
     setHasError(false);
   }, [sources]);
 
-  const currentSource = validSources[currentIndex] || sources[0];
+  const currentSource = validSources[currentIndex] || validSources[0];
   const sourceHeaders = currentSource?.headers || headers;
   const playbackType =
     currentSource?.playbackType ||
