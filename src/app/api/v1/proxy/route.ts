@@ -1,6 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+export const runtime = "edge";
 
-// Known Referer mappings for CDN domains
 const CDN_REFERERS: Record<string, string> = {
   "acek-cdn.com": "https://awish.pro/",
   "dramiyos-cdn.com": "https://awish.pro/",
@@ -11,101 +10,75 @@ const CDN_REFERERS: Record<string, string> = {
   "dood.to": "https://dood.to/",
 };
 
-function getRefererForUrl(url: string): string {
+function getReferer(url: string, custom?: string | null): string {
+  if (custom) return custom;
   try {
-    const hostname = new URL(url).hostname;
-    for (const [domain, referer] of Object.entries(CDN_REFERERS)) {
-      if (hostname.includes(domain)) return referer;
+    const host = new URL(url).hostname;
+    for (const [domain, ref] of Object.entries(CDN_REFERERS)) {
+      if (host.includes(domain)) return ref;
     }
   } catch {}
   return "";
 }
 
-function rewriteM3u8(content: string, baseUrl: string, proxyBase: string, referer: string): string {
+function rewriteM3u8(text: string, baseUrl: string, proxyOrigin: string, referer: string): string {
   const base = new URL(baseUrl);
-  const lines = content.split("\n");
-
-  return lines.map(line => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) return line;
-
-    // Resolve relative URLs to absolute
-    let absolute: string;
-    try {
-      absolute = new URL(trimmed, base).toString();
-    } catch {
-      return line;
-    }
-
-    // Wrap through our proxy
-    const params = new URLSearchParams({ url: absolute });
-    if (referer) params.set("referer", referer);
-    return `${proxyBase}?${params.toString()}`;
+  return text.split("\n").map(line => {
+    const t = line.trim();
+    if (!t || t.startsWith("#")) return line;
+    let abs: string;
+    try { abs = new URL(t, base).toString(); } catch { return line; }
+    const p = new URLSearchParams({ url: abs });
+    if (referer) p.set("referer", referer);
+    return `${proxyOrigin}/api/v1/proxy?${p}`;
   }).join("\n");
 }
 
-export async function GET(req: NextRequest) {
-  const url = req.nextUrl.searchParams.get("url");
-  const customReferer = req.nextUrl.searchParams.get("referer");
+export async function GET(req: Request) {
+  const { searchParams, origin } = new URL(req.url);
+  const url = searchParams.get("url");
+  const customReferer = searchParams.get("referer");
 
-  if (!url) return new NextResponse("No URL provided", { status: 400 });
-
-  // Security: only proxy http/https URLs
-  if (!/^https?:\/\//i.test(url)) {
-    return new NextResponse("Invalid URL", { status: 400 });
+  if (!url || !/^https?:\/\//i.test(url)) {
+    return new Response("Invalid URL", { status: 400 });
   }
 
-  const referer = customReferer || getRefererForUrl(url);
+  const referer = getReferer(url, customReferer);
+  const headers: Record<string, string> = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "*/*",
+  };
+  if (referer) {
+    headers["Referer"] = referer;
+    headers["Origin"] = new URL(referer).origin;
+  }
 
-  try {
-    const fetchHeaders: Record<string, string> = {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      "Accept": "*/*",
-      "Accept-Language": "en-US,en;q=0.9",
-      "Origin": referer ? new URL(referer).origin : "",
-    };
-    if (referer) fetchHeaders["Referer"] = referer;
+  const upstream = await fetch(url, { headers });
+  if (!upstream.ok) {
+    return new Response(`Upstream ${upstream.status}`, { status: upstream.status });
+  }
 
-    const response = await fetch(url, { headers: fetchHeaders });
+  const ct = upstream.headers.get("content-type") || "";
+  const isM3u8 = ct.includes("mpegurl") || url.includes(".m3u8");
 
-    if (!response.ok) {
-      return new NextResponse(`Upstream error: ${response.status}`, { status: response.status });
-    }
+  if (isM3u8) {
+    const text = await upstream.text();
+    const rewritten = rewriteM3u8(text, url, origin, referer);
+    return new Response(rewritten, {
+      headers: {
+        "Content-Type": "application/vnd.apple.mpegurl",
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "no-cache",
+      },
+    });
+  }
 
-    const contentType = response.headers.get("content-type") || "";
-    const isM3u8 = contentType.includes("mpegurl") || url.includes(".m3u8");
-
-    if (isM3u8) {
-      const text = await response.text();
-      // Build proxy base URL from the request
-      const reqUrl = new URL(req.url);
-      const proxyBase = `${reqUrl.origin}/api/v1/proxy`;
-      const rewritten = rewriteM3u8(text, url, proxyBase, referer);
-
-      return new NextResponse(rewritten, {
-        headers: {
-          "Content-Type": "application/vnd.apple.mpegurl",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers": "*",
-          "Cache-Control": "no-cache",
-        },
-      });
-    }
-
-    // Binary passthrough for .ts segments, keys, etc.
-    const data = await response.arrayBuffer();
-    const headers: Record<string, string> = {
-      "Content-Type": contentType || "application/octet-stream",
+  // Stream binary content (ts segments, keys) directly without buffering
+  return new Response(upstream.body, {
+    headers: {
+      "Content-Type": ct || "application/octet-stream",
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "*",
-    };
-
-    const contentLength = response.headers.get("content-length");
-    if (contentLength) headers["Content-Length"] = contentLength;
-
-    return new NextResponse(data, { headers });
-  } catch (error) {
-    console.error("[Proxy] Error fetching", url, error);
-    return new NextResponse("Proxy Error", { status: 500 });
-  }
+      "Cache-Control": "public, max-age=86400",
+    },
+  });
 }
