@@ -261,6 +261,7 @@ export async function GET(req: NextRequest) {
         if (!u || seen.has(u)) continue;
         if (/minochinos|earnvids|short\.icu/i.test(u)) continue;
         if (/youtube\.com|youtu\.be/i.test(u)) continue;
+        if (getPlaybackType(u) === "iframe" && /tveo\.site/i.test(u)) continue;
         seen.add(u);
         finalSources.push({ url: u, name: `${providerName} ${count++}`, lang, playbackType: getPlaybackType(u) });
       }

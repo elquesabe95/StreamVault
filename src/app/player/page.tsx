@@ -6,7 +6,7 @@ import {
   Maximize, Minimize, X, ChevronDown, Clock, Tv, Film,
   AlertCircle, Loader2, ExternalLink,
 } from "lucide-react";
-import Player from "@/components/Player";
+import NetflixPlayer from "@/components/NetflixPlayer";
 
 /* ──────────────────────────────────────────────
    STREAMVAULT EMBED PLAYER — Netflix Style
@@ -520,11 +520,27 @@ export default function PlayerPage() {
       {!loading && activeSource && (() => {
         const activeSourceObj = sources.find(s => s.url === activeSource);
         const isDirect = activeSourceObj ? isDirectStream(activeSourceObj) : isDirectStream({ name: "", label: "", url: activeSource });
-        return isDirect ? (
-          <div className="absolute inset-0 w-full h-full z-10">
-            <Player url={activeSource} title={data?.title} />
-          </div>
-        ) : (
+        if (isDirect) {
+          // Build sources list with selected source first, then remaining direct streams
+          const directList = sources.filter(s => isDirectStream(s));
+          const idx = directList.findIndex(s => s.url === activeSource);
+          if (idx > 0) {
+            const [sel] = directList.splice(idx, 1);
+            directList.unshift(sel);
+          }
+          const netflixSources = directList.map(s => ({
+            url: s.url,
+            name: s.label,
+            lang: s.lang,
+            playbackType: s.playbackType as "hls" | "mp4" | "iframe",
+          }));
+          return (
+            <div className="absolute inset-0 w-full h-full z-10">
+              <NetflixPlayer sources={netflixSources} title={data?.title} />
+            </div>
+          );
+        }
+        return (
           <iframe
             key={iframeKey}
             src={activeSource}

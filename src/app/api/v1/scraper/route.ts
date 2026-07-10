@@ -243,6 +243,7 @@ export async function GET(req: NextRequest) {
 
           for (const fUrl of urlsToAdd) {
             if (seenUrls.has(fUrl)) continue;
+            if (getPlaybackType(fUrl) === "iframe" && /tveo\.site/i.test(fUrl)) continue;
             seenUrls.add(fUrl);
 
             const rawLang = item.lang || (type === "anime" ? "Sub" : "Latino");

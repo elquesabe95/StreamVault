@@ -339,6 +339,10 @@ export async function resolveStream(url: string): Promise<string | string[]> {
     if (url.includes("embed69.org")) {
       extraHeaders["Referer"] = "https://pelispedia.mov/";
     }
+    if (url.includes("tveo.site")) {
+      extraHeaders["Referer"] = "https://tveo.site/";
+      extraHeaders["Origin"] = "https://tveo.site";
+    }
     let html = await readPage(url, extraHeaders, needsProxy);
 
     // If direct failed or was blocked (too short), retry with proxy for any URL to maximize direct stream extraction
@@ -408,6 +412,17 @@ export async function resolveStream(url: string): Promise<string | string[]> {
       // Try direct match
       const direct = findM3u8InText(html) || findMp4InText(html);
       if (direct) return direct;
+    }
+
+    // --- tveo.site (JW Player) ---
+    if (url.includes("tveo.site")) {
+      // JW Player sources: [{file: "url"}]
+      const jwMatch = /sources\s*:\s*\[[\s\S]{0,300}?file\s*:\s*["'](https?:\/\/[^"']+)["']/i.exec(html);
+      if (jwMatch) { console.log(`[Resolver] tveo.site JW Player resolved`); return jwMatch[1]; }
+      const m3u8 = findM3u8InText(html);
+      if (m3u8) { console.log(`[Resolver] tveo.site m3u8 found`); return m3u8; }
+      const mp4 = findMp4InText(html);
+      if (mp4) { console.log(`[Resolver] tveo.site mp4 found`); return mp4; }
     }
 
     // --- Filemoon / Streamwish / Vidhide / Closeload (PACKER variants) ---
