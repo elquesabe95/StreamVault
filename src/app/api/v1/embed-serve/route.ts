@@ -39,14 +39,40 @@ function setCached(key: string, sources: any[]) {
   cache.set(key, { sources, ts: Date.now() });
 }
 
-// ── Resolver wrapper ───────────────────────────────────────────────────────────
-async function resolveDeep(url: string, ms = 4000): Promise<string[]> {
+// ── Two-level resolver (mirrors the /scraper route's resolveToPlayableUrls) ───
+// Level 1: resolve the raw scraper URL (e.g. vidurl → array of embed iframes)
+// Level 2: resolve each remaining iframe (e.g. streamwish → m3u8)
+async function resolveDeep(url: string, ms = 4500): Promise<string[]> {
   if (/minochinos|short\.icu|earnvids/i.test(url)) return [];
-  // Pass iframe-only hosts through without resolution
-  if (/voe\.sx|hglink\.to/i.test(url)) return [url];
-  const timer = new Promise<string | string[]>(r => setTimeout(() => r(url), ms));
-  const first = await Promise.race([resolveStream(url).catch(() => url), timer]);
-  return Array.isArray(first) ? first.slice(0, 8) : [first];
+
+  const timer = <T>(t: number, v: T): Promise<T> => new Promise(r => setTimeout(() => r(v), t));
+
+  // Level 1
+  const first = await Promise.race([
+    resolveStream(url).catch((): string => url),
+    timer(ms, url as string),
+  ]);
+  const firstUrls: string[] = Array.isArray(first) ? first.slice(0, 10) : [first as string];
+
+  // Level 2: for any result that is still an iframe, try to extract a stream
+  const playable: string[] = [];
+  await Promise.all(
+    firstUrls.map(async (u) => {
+      if (/minochinos|short\.icu|earnvids/i.test(u)) return;
+      const pt = /\.m3u8(?:[?#]|$)/i.test(u) ? "hls" : /\.mp4(?:[?#]|$)/i.test(u) ? "mp4" : "iframe";
+      if (pt !== "iframe") { playable.push(u); return; }
+      // Pass known iframe-only hosts through unchanged
+      if (/voe\.sx|hglink\.to/i.test(u)) { playable.push(u); return; }
+      const second = await Promise.race([
+        resolveStream(u).catch((): string => u),
+        timer(ms, u as string),
+      ]);
+      const secondUrls: string[] = Array.isArray(second) ? second.slice(0, 5) : [second as string];
+      playable.push(...secondUrls);
+    })
+  );
+
+  return [...new Set(playable)].slice(0, 12);
 }
 
 export async function GET(req: NextRequest) {
