@@ -343,6 +343,10 @@ export async function resolveStream(url: string): Promise<string | string[]> {
       extraHeaders["Referer"] = "https://tveo.site/";
       extraHeaders["Origin"] = "https://tveo.site";
     }
+    if (url.includes("voe.sx")) {
+      extraHeaders["Referer"] = "https://voe.sx/";
+      extraHeaders["Origin"] = "https://voe.sx";
+    }
     let html = await readPage(url, extraHeaders, needsProxy);
 
     // If direct failed or was blocked (too short), retry with proxy for any URL to maximize direct stream extraction

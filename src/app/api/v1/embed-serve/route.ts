@@ -56,8 +56,8 @@ async function resolveToPlayable(rawUrl: string): Promise<string[]> {
       if (/minochinos|short\.icu|earnvids/i.test(u)) return [];
       const pt = getPlaybackType(u);
       if (pt !== "iframe") return [u]; // already a stream
-      // Pass known iframe-only hosts through
-      if (/voe\.sx|hglink\.to/i.test(u)) return [u];
+      // hglink.to is iframe-only; voe.sx can resolve to HLS
+      if (/hglink\.to/i.test(u)) return [u];
       const second = await resolveStream(u).catch(() => u);
       return Array.isArray(second) ? second.slice(0, 5) : [second];
     })

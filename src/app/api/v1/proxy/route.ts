@@ -11,6 +11,9 @@ const CDN_REFERERS: Record<string, string> = {
   "vidhide.com": "https://vidhide.com/",
   "streamtape.com": "https://streamtape.com/",
   "dood.to": "https://dood.to/",
+  "voe.sx": "https://voe.sx/",
+  "voe-network.net": "https://voe.sx/",
+  "tiviplex.com": "https://voe.sx/",
 };
 
 function getReferer(url: string, custom?: string | null): string {
