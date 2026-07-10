@@ -20,8 +20,6 @@ interface NetflixPlayerProps {
   showLangBadge?: boolean;
 }
 
-// Prefer direct streams (our own player) over site iframes. Array.sort is
-// stable in V8, so provider order is preserved within each playbackType group.
 function sortByPlayback(list: StreamSource[]): StreamSource[] {
   const rank = (s: StreamSource) => {
     const t = s.playbackType ||
@@ -36,6 +34,7 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -45,8 +44,12 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [validSources, setValidSources] = useState<StreamSource[]>(() => sortByPlayback(sources));
-  const [isChecking, setIsChecking] = useState(false);
+  const [isChecking] = useState(false);
   const hlsRef = useRef<any>(null);
+  // For debounced seek: track value while dragging, commit on release
+  const seekValueRef = useRef<number | null>(null);
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [seekDisplay, setSeekDisplay] = useState(0);
 
   useEffect(() => {
     setValidSources(sortByPlayback(sources));
@@ -64,98 +67,112 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
   const handleFailover = useCallback(() => {
     setCurrentIndex((index) => {
       if (index < validSources.length - 1) {
-        console.log(`[Player] Failing over to next source: ${index + 1}`);
         return index + 1;
       }
-
       setHasError(true);
       return index;
     });
   }, [validSources.length]);
 
+  // ── HLS / native video setup ──────────────────────────────────────────────
   useEffect(() => {
     if (!videoRef.current || !currentSource?.url || isChecking || isEmbed) return;
 
+    const video = videoRef.current;
     const url = currentSource.url;
     setHasError(false);
     setIsPlaying(false);
+    setIsBuffering(true);
+    setProgress(0);
+    setCurrentTime(0);
+    setDuration(0);
 
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
 
-    const loadHls = () => {
-      const attach = () => {
-        const Hls = (window as any).Hls;
-        if (playbackType === "hls" && Hls?.isSupported()) {
-          const hls = new Hls({
-            // Better seek & recovery settings
-            maxBufferLength: 30,
-            maxMaxBufferLength: 60,
-            maxBufferHole: 0.5,
-            nudgeMaxRetry: 5,
-            startLevel: -1,           // auto quality
-            abrEwmaDefaultEstimate: 500000,
-            fragLoadingTimeOut: 20000,
-            manifestLoadingTimeOut: 15000,
-            levelLoadingTimeOut: 15000,
-            fragLoadingMaxRetry: 4,
-            fragLoadingRetryDelay: 500,
-          });
-          hlsRef.current = hls;
-          hls.loadSource(url);
-          hls.attachMedia(videoRef.current!);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            // Only mark playing if play() actually succeeds — on mobile autoplay
-            // is blocked by the browser and play() rejects; keeping isPlaying=false
-            // lets the play-button overlay show so the user can tap to start.
-            videoRef.current?.play()
-              .then(() => setIsPlaying(true))
-              .catch(() => { /* autoplay blocked — user must tap play */ });
-          });
-          hls.on(Hls.Events.ERROR, (event: any, data: any) => {
-            if (!data.fatal) return;
-            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-              // Resume loading from the current seek position
-              hls.startLoad(videoRef.current?.currentTime ?? -1);
-            } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-              hls.recoverMediaError();
-            } else {
-              handleFailover();
-            }
-          });
-        } else {
-          videoRef.current!.src = url;
-          videoRef.current!.onerror = () => handleFailover();
-          videoRef.current?.play()
-            .then(() => setIsPlaying(true))
-            .catch(() => { /* autoplay blocked on mobile — user taps to start */ });
-        }
-      };
+    let cancelled = false;
 
-      if ((window as any).Hls || playbackType !== "hls") {
-        attach();
-        return;
-      }
-
-      const script = document.createElement("script");
-      script.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
-      script.onload = attach;
-      script.onerror = () => handleFailover();
-      document.head.appendChild(script);
+    const startNative = () => {
+      video.src = url;
+      video.onerror = () => { if (!cancelled) handleFailover(); };
+      video.play()
+        .then(() => { if (!cancelled) setIsPlaying(true); })
+        .catch(() => { /* autoplay blocked — user taps to start */ });
     };
 
-    loadHls();
+    const startHls = async () => {
+      // Use the installed hls.js package — no CDN request needed
+      const HlsLib = (await import("hls.js")).default;
+
+      if (cancelled) return;
+
+      if (playbackType === "hls" && HlsLib.isSupported()) {
+        const hls = new HlsLib({
+          enableWorker: true,
+          lowLatencyMode: false,       // VOD streams, not live
+          backBufferLength: 60,        // keep 60s behind playhead for backward seek
+          maxBufferLength: 30,
+          maxMaxBufferLength: 600,
+          maxBufferHole: 0.5,
+          nudgeMaxRetry: 10,
+          startLevel: -1,             // auto quality
+          abrEwmaDefaultEstimate: 1000000,
+          fragLoadingTimeOut: 30000,
+          manifestLoadingTimeOut: 20000,
+          levelLoadingTimeOut: 20000,
+          fragLoadingMaxRetry: 3,     // fail fast → our handler retries
+          fragLoadingRetryDelay: 500,
+          manifestLoadingMaxRetry: 3,
+          levelLoadingMaxRetry: 3,
+        });
+
+        hlsRef.current = hls;
+        hls.loadSource(url);
+        hls.attachMedia(video);
+
+        hls.on(HlsLib.Events.MANIFEST_PARSED, () => {
+          if (cancelled) return;
+          video.play()
+            .then(() => { if (!cancelled) setIsPlaying(true); })
+            .catch(() => { /* autoplay blocked on mobile — user taps to start */ });
+        });
+
+        hls.on(HlsLib.Events.ERROR, (_event: any, data: any) => {
+          if (cancelled) return;
+          if (!data.fatal) return;
+
+          if (data.type === HlsLib.ErrorTypes.NETWORK_ERROR) {
+            // Restart loading from current position
+            hls.startLoad(video.currentTime ?? -1);
+          } else if (data.type === HlsLib.ErrorTypes.MEDIA_ERROR) {
+            hls.recoverMediaError();
+          } else {
+            handleFailover();
+          }
+        });
+
+      } else {
+        // iOS Safari: native HLS
+        startNative();
+      }
+    };
+
+    startHls();
 
     return () => {
+      cancelled = true;
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
+      video.removeAttribute("src");
+      video.load();
     };
-  }, [currentSource, handleFailover, sourceHeaders, isChecking, isEmbed, playbackType]);
+  }, [currentSource, handleFailover, isChecking, isEmbed, playbackType]);
 
+  // ── Volume sync ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (!videoRef.current) return;
     videoRef.current.volume = volume;
@@ -163,14 +180,11 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
   }, [volume, isMuted, currentSource]);
 
   const nextSource = () => {
-    if (currentIndex < validSources.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      setCurrentIndex(0); // Loop back
-    }
+    if (currentIndex < validSources.length - 1) setCurrentIndex(currentIndex + 1);
+    else setCurrentIndex(0);
   };
 
-  // Controls Visibility Timeout — mouse + touch
+  // ── Controls visibility (mouse + touch) ───────────────────────────────────
   useEffect(() => {
     let timeout: NodeJS.Timeout;
     const showAndReset = () => {
@@ -180,46 +194,55 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
         if (isPlaying) setShowControls(false);
       }, 3000);
     };
-
     const el = containerRef.current;
     el?.addEventListener("mousemove", showAndReset);
     el?.addEventListener("touchstart", showAndReset, { passive: true });
     return () => {
       el?.removeEventListener("mousemove", showAndReset);
       el?.removeEventListener("touchstart", showAndReset);
+      clearTimeout(timeout);
     };
   }, [isPlaying]);
 
-  const togglePlay = () => {
-    if (videoRef.current) {
-      if (isPlaying) videoRef.current.pause();
-      else videoRef.current.play();
-      setIsPlaying(!isPlaying);
-    }
-  };
-
+  // ── Playback events ───────────────────────────────────────────────────────
   const handleTimeUpdate = () => {
-    if (videoRef.current) {
-      const current = videoRef.current.currentTime;
-      const total = videoRef.current.duration;
-      setCurrentTime(current);
-      setDuration(total || 0);
-      
-      // Safety check for live streams or empty duration
-      if (total && total > 0) {
-        setProgress((current / total) * 100);
-      } else {
-        setProgress(0);
-      }
+    if (!videoRef.current) return;
+    const cur = videoRef.current.currentTime;
+    const tot = videoRef.current.duration;
+    setCurrentTime(cur);
+    setDuration(tot || 0);
+    if (tot && tot > 0 && !isSeeking) {
+      setProgress((cur / tot) * 100);
     }
   };
 
-  const seek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = (parseFloat(e.target.value) / 100) * duration;
-    if (videoRef.current) {
-      videoRef.current.currentTime = time;
-      setProgress(parseFloat(e.target.value));
-    }
+  const handleWaiting = () => setIsBuffering(true);
+  const handlePlaying = () => setIsBuffering(false);
+  const handleCanPlay = () => setIsBuffering(false);
+
+  // ── Seeking — update display while dragging, seek only on release ─────────
+  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    seekValueRef.current = val;
+    setSeekDisplay(val);
+    setIsSeeking(true);
+  };
+
+  const commitSeek = () => {
+    const val = seekValueRef.current;
+    if (val === null || !videoRef.current || !duration) return;
+    const time = (val / 100) * duration;
+    videoRef.current.currentTime = time;
+    setProgress(val);
+    setIsSeeking(false);
+    seekValueRef.current = null;
+  };
+
+  // ── Transport controls ────────────────────────────────────────────────────
+  const togglePlay = () => {
+    if (!videoRef.current) return;
+    if (isPlaying) { videoRef.current.pause(); setIsPlaying(false); }
+    else { videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {}); }
   };
 
   const skip = (amount: number) => {
@@ -236,6 +259,16 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
     }
   };
 
+  const formatTime = (s: number) => {
+    if (!s || isNaN(s)) return "0:00";
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = Math.floor(s % 60);
+    return h > 0
+      ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
+      : `${m}:${String(sec).padStart(2, "0")}`;
+  };
+
   if (isChecking) {
     return (
       <div className="relative w-full aspect-video bg-black rounded-3xl flex flex-col items-center justify-center border border-gray-800">
@@ -245,8 +278,10 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
     );
   }
 
+  const displayProgress = isSeeking ? seekDisplay : progress;
+
   return (
-    <div 
+    <div
       ref={containerRef}
       className="relative w-full h-full bg-black overflow-hidden group"
     >
@@ -270,11 +305,23 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
           <video
             ref={videoRef}
             onTimeUpdate={handleTimeUpdate}
+            onWaiting={handleWaiting}
+            onPlaying={handlePlaying}
+            onCanPlay={handleCanPlay}
             onClick={togglePlay}
             className="w-full h-full cursor-pointer"
             playsInline
           />
-          {!isPlaying && (
+
+          {/* Buffering spinner */}
+          {isBuffering && isPlaying && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <Loader2 className="animate-spin text-yellow-500" size={56} />
+            </div>
+          )}
+
+          {/* Play button overlay — tappeable for mobile autoplay unlock */}
+          {!isPlaying && !isBuffering && (
             <div
               className="absolute inset-0 flex items-center justify-center cursor-pointer"
               onClick={togglePlay}
@@ -284,13 +331,20 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
               </div>
             </div>
           )}
+
+          {/* Initial loading (buffering before first play) */}
+          {isBuffering && !isPlaying && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 pointer-events-none">
+              <Loader2 className="animate-spin text-yellow-500" size={56} />
+              <p className="text-gray-400 text-sm">Cargando stream...</p>
+            </div>
+          )}
         </>
       )}
 
-      {/* Header Info */}
+      {/* ── Source selector header ─────────────────────────────────────────── */}
       <div className={`absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-black/80 to-transparent transition-opacity duration-500 ${showControls ? "opacity-100" : "opacity-0"}`}>
-        <div className="p-8 flex items-center justify-between">
-          <div />
+        <div className="p-4 md:p-8 flex items-center justify-end">
           {validSources.length > 1 && (
             <div className="flex items-center gap-2">
               <div className="hidden md:flex max-w-xl overflow-x-auto gap-2">
@@ -303,10 +357,9 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
                         ? "bg-yellow-500 text-black border-yellow-400"
                         : "bg-white/10 text-white border-white/10 hover:bg-white/20"
                     }`}
-                    title={source.url}
                   >
                     <Server size={12} className="inline mr-1" />
-                    {index + 1}
+                    {source.lang || index + 1}
                   </button>
                 ))}
               </div>
@@ -321,57 +374,62 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
         </div>
       </div>
 
-      {/* Custom Controls - Only show for direct streams */}
+      {/* ── Custom controls (direct streams only) ─────────────────────────── */}
       {!isEmbed && !hasError && (
-        <div className={`absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-8 transition-opacity duration-500 ${showControls ? "opacity-100" : "opacity-0"}`}>
-          <div className="relative w-full mb-6 group/bar">
+        <div className={`absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end px-4 md:px-8 pb-4 md:pb-8 pt-16 transition-opacity duration-500 ${showControls ? "opacity-100" : "opacity-0"}`}>
+
+          {/* Time labels */}
+          <div className="flex justify-between text-xs text-gray-400 mb-1 px-1">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+
+          {/* Seek bar — commits on pointer/touch release to avoid mid-drag seeks */}
+          <div className="relative w-full mb-4">
             <input
               type="range"
               min="0"
               max="100"
-              value={progress || 0}
-              onChange={seek}
+              value={displayProgress}
+              onChange={handleSeekChange}
+              onMouseUp={commitSeek}
+              onTouchEnd={commitSeek}
               style={{ touchAction: "none" }}
-              className="w-full h-2 md:h-1 bg-gray-600 rounded-full appearance-none cursor-pointer accent-yellow-500 md:hover:h-2 transition-all"
+              className="w-full h-2 bg-gray-600 rounded-full appearance-none cursor-pointer accent-yellow-500"
             />
           </div>
 
+          {/* Controls row */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <button onClick={togglePlay} className="text-white hover:text-yellow-500 transform hover:scale-110 transition-all">
+            <div className="flex items-center gap-4 md:gap-8">
+              <button onClick={togglePlay} className="text-white hover:text-yellow-500 transition-all">
                 {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" />}
               </button>
-              
-              <div className="flex items-center gap-6">
-                <button onClick={() => skip(-10)} className="text-white hover:text-yellow-500 transition-all">
-                  <RotateCcw size={28} />
-                </button>
-                <button onClick={() => skip(10)} className="text-white hover:text-yellow-500 transition-all">
-                  <RotateCw size={28} />
-                </button>
-              </div>
-
-              <div className="flex items-center gap-4 group/vol">
+              <button onClick={() => skip(-10)} className="text-white hover:text-yellow-500 transition-all">
+                <RotateCcw size={26} />
+              </button>
+              <button onClick={() => skip(10)} className="text-white hover:text-yellow-500 transition-all">
+                <RotateCw size={26} />
+              </button>
+              <div className="flex items-center gap-3 group/vol">
                 <button onClick={() => setIsMuted(!isMuted)} className="text-white hover:text-yellow-500">
-                  {isMuted || volume === 0 ? <VolumeX size={28} /> : <Volume2 size={28} />}
+                  {isMuted || volume === 0 ? <VolumeX size={26} /> : <Volume2 size={26} />}
                 </button>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="1" 
-                  step="0.1" 
-                  value={volume} 
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={isMuted ? 0 : volume}
                   onChange={(e) => setVolume(parseFloat(e.target.value))}
-                  className="w-0 group-hover/vol:w-24 transition-all accent-yellow-500 appearance-none h-1 bg-gray-600 rounded-full"
+                  className="w-0 group-hover/vol:w-20 transition-all accent-yellow-500 appearance-none h-1 bg-gray-600 rounded-full"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-8">
-              <button onClick={toggleFullScreen} className="text-white hover:text-yellow-500 transition-all">
-                <Maximize size={28} />
-              </button>
-            </div>
+            <button onClick={toggleFullScreen} className="text-white hover:text-yellow-500 transition-all">
+              <Maximize size={26} />
+            </button>
           </div>
         </div>
       )}
