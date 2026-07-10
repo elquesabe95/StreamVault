@@ -1,4 +1,8 @@
-export const runtime = "edge";
+// Must NOT use edge runtime — CDN tokens are IP-locked to AWS (ASN 14618).
+// embed-serve runs on Vercel Node.js (AWS); proxy must run on the same network.
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 const CDN_REFERERS: Record<string, string> = {
   "acek-cdn.com": "https://awish.pro/",
@@ -65,8 +69,10 @@ function rewriteM3u8(text: string, baseUrl: string, proxyOrigin: string, referer
   }).join("\n");
 }
 
-export async function GET(req: Request) {
-  const { searchParams, origin } = new URL(req.url);
+export async function GET(req: Request): Promise<Response> {
+  const reqUrl = new URL(req.url);
+  const { searchParams } = reqUrl;
+  const origin = reqUrl.origin;
   const url = searchParams.get("url");
   const customReferer = searchParams.get("referer");
 
