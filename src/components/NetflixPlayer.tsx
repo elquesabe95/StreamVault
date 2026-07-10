@@ -90,15 +90,18 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
         const Hls = (window as any).Hls;
         if (playbackType === "hls" && Hls?.isSupported()) {
           const hls = new Hls({
-            xhrSetup: (xhr: XMLHttpRequest, url: string) => {
-              if (sourceHeaders) {
-                Object.entries(sourceHeaders).forEach(([key, value]) => {
-                  if (!["referer", "origin"].includes(key.toLowerCase())) {
-                    xhr.setRequestHeader(key, value);
-                  }
-                });
-              }
-            }
+            // Better seek & recovery settings
+            maxBufferLength: 30,
+            maxMaxBufferLength: 60,
+            maxBufferHole: 0.5,
+            nudgeMaxRetry: 5,
+            startLevel: -1,           // auto quality
+            abrEwmaDefaultEstimate: 500000,
+            fragLoadingTimeOut: 20000,
+            manifestLoadingTimeOut: 15000,
+            levelLoadingTimeOut: 15000,
+            fragLoadingMaxRetry: 4,
+            fragLoadingRetryDelay: 500,
           });
           hlsRef.current = hls;
           hls.loadSource(url);
@@ -108,8 +111,16 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
             setIsPlaying(true);
           });
           hls.on(Hls.Events.ERROR, (event: any, data: any) => {
-            if (data.fatal) {
-              console.error("HLS Fatal Error:", data);
+            if (!data.fatal) return;
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              // Try to recover network errors (e.g. after seek)
+              console.warn("[HLS] Network error, recovering...", data.details);
+              hls.startLoad();
+            } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+              console.warn("[HLS] Media error, recovering...", data.details);
+              hls.recoverMediaError();
+            } else {
+              console.error("[HLS] Fatal unrecoverable error, failing over", data);
               handleFailover();
             }
           });
@@ -251,7 +262,6 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
           <video
             ref={videoRef}
             onTimeUpdate={handleTimeUpdate}
-            onEnded={handleFailover}
             onClick={togglePlay}
             className="w-full h-full cursor-pointer"
             playsInline

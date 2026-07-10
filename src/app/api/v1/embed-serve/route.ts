@@ -20,10 +20,10 @@ function getPlaybackType(url: string): PlaybackType {
   return "iframe";
 }
 
-// ── In-memory cache (survives between requests on same Vercel instance) ────────
+// ── In-memory cache ────────────────────────────────────────────────────────────
 interface CacheEntry { sources: any[]; ts: number }
 const cache = new Map<string, CacheEntry>();
-const CACHE_TTL = 25 * 60 * 1000; // 25 min
+const CACHE_TTL = 25 * 60 * 1000;
 
 function getCached(key: string): any[] | null {
   const e = cache.get(key);
@@ -32,20 +32,20 @@ function getCached(key: string): any[] | null {
   return e.sources;
 }
 function setCached(key: string, sources: any[]) {
-  if (cache.size > 500) {
+  if (cache.size > 200) {
     const oldest = [...cache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0];
     if (oldest) cache.delete(oldest[0]);
   }
   cache.set(key, { sources, ts: Date.now() });
 }
 
-// ── Resolver with per-URL timeout ──────────────────────────────────────────────
+// ── Resolver wrapper ───────────────────────────────────────────────────────────
 async function resolveDeep(url: string, ms = 4000): Promise<string[]> {
   if (/minochinos|short\.icu|earnvids/i.test(url)) return [];
-  if (/voe\.sx|hglink\.to/i.test(url)) return [url]; // fast iframe pass-through
-  const timer = new Promise<string[]>((_, r) => setTimeout(() => r([url]), ms));
-  const work = resolveStream(url).catch(() => url);
-  const first = await Promise.race([work, timer]);
+  // Pass iframe-only hosts through without resolution
+  if (/voe\.sx|hglink\.to/i.test(url)) return [url];
+  const timer = new Promise<string | string[]>(r => setTimeout(() => r(url), ms));
+  const first = await Promise.race([resolveStream(url).catch(() => url), timer]);
   return Array.isArray(first) ? first.slice(0, 8) : [first];
 }
 
@@ -62,9 +62,8 @@ export async function GET(req: NextRequest) {
     if (!id) return NextResponse.json({ success: false, message: "id requerido" }, { status: 400 });
 
     const cacheKey = `${type}:${id}:${season}:${episode}`;
-    const cached = getCached(cacheKey);
 
-    // ── 1. TMDB metadata (always fresh) ──────────────────────────────────────
+    // ── 1. TMDB metadata ──────────────────────────────────────────────────────
     let metadata: any = {};
     let query = "";
 
@@ -90,14 +89,17 @@ export async function GET(req: NextRequest) {
       query = show.name;
     }
 
-    // ── 2. Serve from cache if available ─────────────────────────────────────
+    // ── 2. Cache hit ──────────────────────────────────────────────────────────
+    const cached = getCached(cacheKey);
     if (cached) {
-      console.log(`[EmbedServe] Cache HIT ${metadata.title} (${cacheKey}) in ${Date.now() - start}ms`);
-      return NextResponse.json({ success: true, _v: 8, cached: true, data: { type, ...metadata, sources: cached } });
+      console.log(`[EmbedServe] CACHE HIT ${metadata.title} in ${Date.now() - start}ms`);
+      return NextResponse.json({ success: true, _v: 9, cached: true, data: { type, ...metadata, sources: cached } });
     }
 
-    // ── 3. Scrape providers ───────────────────────────────────────────────────
+    // ── 3. Provider definitions ───────────────────────────────────────────────
     const year = metadata.year || "";
+    const slug = query.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
     const findMatch = (results: any[]) => {
       if (!results?.length) return null;
@@ -106,28 +108,21 @@ export async function GET(req: NextRequest) {
         .toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
       const exact = results.find((r: any) => norm(r.title) === q);
       if (exact) return exact;
-      const wordRegex = new RegExp(`\\b${q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
-      if (year) {
-        const wy = results.find((r: any) => wordRegex.test(norm(r.title)) && r.title.includes(year));
-        return wy || null;
-      }
-      const wm = results.find((r: any) => { const t = norm(r.title); return wordRegex.test(t) && !(q.length <= 5 && t.length > q.length * 3); });
+      const re = new RegExp(`\\b${q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      if (year) return results.find((r: any) => re.test(norm(r.title)) && r.title.includes(year)) || null;
+      const wm = results.find((r: any) => { const t = norm(r.title); return re.test(t) && !(q.length <= 5 && t.length > q.length * 3); });
       if (wm) return wm;
-      if (q.length > 5) return results.find((r: any) => { const t = norm(r.title); return t.includes(q) || q.includes(t); }) || null;
-      return null;
+      return q.length > 5 ? (results.find((r: any) => { const t = norm(r.title); return t.includes(q) || q.includes(t); }) || null) : null;
     };
 
-    const slug = query.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-
-    // Each provider returns raw { url, lang? } items
     type RawItem = { url: string; lang?: string };
+
     const providers: { name: string; fn: () => Promise<RawItem[]> }[] = [
       {
         name: "PelisPedia",
         fn: async () => {
           const res = await searchPelispedia(query);
-          let match = findMatch(res);
+          const match = findMatch(res);
           let targetUrl = match?.url || (type === "movie"
             ? `https://pelispedia.mov/pelicula/${slug}/`
             : `https://pelispedia.mov/serie/${slug}/temporada/${season}/capitulo/${episode}`);
@@ -143,10 +138,8 @@ export async function GET(req: NextRequest) {
         name: "Gnula",
         fn: async () => {
           const res = await searchGnula(query);
-          let match = findMatch(res);
-          let targetUrl = match?.url || (type === "movie"
-            ? `https://ww3.gnulahd.nu/ver/${slug}/`
-            : `https://ww3.gnulahd.nu/ver/${slug}/`);
+          const match = findMatch(res);
+          let targetUrl = match?.url || `https://ww3.gnulahd.nu/ver/${slug}/`;
           if (match && type !== "movie") {
             const ep = await getGnulaEpisodeUrl(match.url, season, episode);
             if (ep) targetUrl = ep; else return [];
@@ -159,7 +152,7 @@ export async function GET(req: NextRequest) {
         name: "Cuevana",
         fn: async () => {
           const res = await searchCuevana(query);
-          let match = findMatch(res);
+          const match = findMatch(res);
           let targetUrl = match?.url || (type === "movie"
             ? `https://cuevana.biz/pelicula/${slug}/`
             : `https://cuevana.biz/serie/${slug}/temporada/${season}/capitulo/${episode}`);
@@ -169,7 +162,8 @@ export async function GET(req: NextRequest) {
           }
           const s = await getCuevanaSources(targetUrl);
           return s.map((x: any) => ({
-            ...x, lang: x.lang === "spanish" ? "Castellano" : x.lang === "subbed" ? "Sub" : "Latino",
+            ...x,
+            lang: x.lang === "spanish" ? "Castellano" : x.lang === "subbed" ? "Sub" : "Latino",
           }));
         },
       },
@@ -177,7 +171,7 @@ export async function GET(req: NextRequest) {
         name: "YandiSpoiler",
         fn: async () => {
           const res = await searchYandi(query);
-          let match = findMatch(res);
+          const match = findMatch(res);
           let targetUrl = match?.url || (type === "movie"
             ? `https://yandispoiler.net/pelicula/${slug}/`
             : `https://yandispoiler.net/serie/${slug}/temporada/${season}/capitulo/${episode}`);
@@ -193,7 +187,7 @@ export async function GET(req: NextRequest) {
         name: "CineCalidad",
         fn: async () => {
           const res = await searchCinecalidad(query);
-          let match = findMatch(res);
+          const match = findMatch(res);
           if (!match) return [];
           let targetUrl = match.url;
           if (type !== "movie") {
@@ -206,89 +200,79 @@ export async function GET(req: NextRequest) {
       },
     ];
 
-    // ── 4. Run all providers + resolve ALL urls fully in parallel ─────────────
+    // ── 4. Run all providers + resolve in parallel (correct pattern) ──────────
+    // Each provider promise includes scraping AND resolving its own URLs.
+    // This means as soon as provider A finishes, its URLs start resolving
+    // WITHOUT waiting for provider B, C, D...
     const PROVIDER_TIMEOUT = 5000;
     const RESOLVE_TIMEOUT = 4000;
 
-    // Kick off all providers simultaneously
-    const providerPromises = providers.map(p =>
-      Promise.race([
-        p.fn().catch((): RawItem[] => []),
-        new Promise<RawItem[]>(res => setTimeout(() => res([]), PROVIDER_TIMEOUT)),
-      ]).then(items => ({ name: p.name, items }))
+    const timeout = <T>(ms: number, fallback: T): Promise<T> =>
+      new Promise(r => setTimeout(() => r(fallback), ms));
+
+    const allProviderResults = await Promise.allSettled(
+      providers.map(async p => {
+        const items: RawItem[] = await Promise.race([
+          p.fn().catch((): RawItem[] => []),
+          timeout(PROVIDER_TIMEOUT, [] as RawItem[]),
+        ]);
+
+        // Immediately resolve all URLs from this provider in parallel
+        const resolved = await Promise.all(
+          items.map(async item => {
+            if (!item.url) return [];
+            const lang = item.lang === "spanish" ? "Castellano"
+              : item.lang === "subbed" ? "Sub"
+              : item.lang || "Latino";
+            const urls = await Promise.race([
+              resolveDeep(item.url, RESOLVE_TIMEOUT),
+              timeout(RESOLVE_TIMEOUT + 500, [item.url]),
+            ]);
+            return urls.map((u: string) => ({ providerName: p.name, url: u, lang }));
+          })
+        );
+
+        return resolved.flat();
+      })
     );
-
-    // As each provider finishes, immediately start resolving its URLs
-    // We flatten everything into one big parallel array
-    const allResolvePromises: Promise<{ providerName: string; url: string; lang: string }>[] = [];
-
-    for (const pp of providerPromises) {
-      // When provider resolves, schedule URL resolution
-      pp.then(({ name, items }) => {
-        for (const item of items) {
-          const rawUrl = item.url;
-          if (!rawUrl) return;
-          const lang = (item.lang === "spanish" ? "Castellano" : item.lang === "subbed" ? "Sub" : item.lang || "Latino");
-          const resolveP = Promise.race([
-            resolveDeep(rawUrl, RESOLVE_TIMEOUT).catch(() => [rawUrl]),
-            new Promise<string[]>(r => setTimeout(() => r([rawUrl]), RESOLVE_TIMEOUT + 500)),
-          ]).then(urls => urls.map(u => ({ providerName: name, url: u, lang })));
-          allResolvePromises.push(...[resolveP].map(p => p.then(arr => arr[0]).catch(() => ({ providerName: name, url: rawUrl, lang }))));
-        }
-      });
-    }
-
-    // Wait for all providers to finish (which also lets all resolve promises be scheduled)
-    await Promise.allSettled(providerPromises);
-
-    // Wait for all resolve promises (they were scheduled while providers ran)
-    const resolvedItems = await Promise.allSettled(allResolvePromises);
 
     // ── 5. Deduplicate and sort ───────────────────────────────────────────────
     const seen = new Set<string>();
     let count = 1;
     const finalSources: any[] = [];
 
-    for (const r of resolvedItems) {
-      if (r.status !== "fulfilled" || !r.value) continue;
-      const { providerName, url: u, lang } = r.value;
-      if (!u || seen.has(u)) continue;
-      if (/minochinos|earnvids|short\.icu/i.test(u)) continue;
-      if (/youtube\.com|youtu\.be/i.test(u)) continue;
-      seen.add(u);
-
-      finalSources.push({
-        url: u,
-        name: `${providerName} ${count++}`,
-        lang,
-        playbackType: getPlaybackType(u),
-      });
+    for (const r of allProviderResults) {
+      if (r.status !== "fulfilled") continue;
+      for (const { providerName, url: u, lang } of r.value) {
+        if (!u || seen.has(u)) continue;
+        if (/minochinos|earnvids|short\.icu/i.test(u)) continue;
+        if (/youtube\.com|youtu\.be/i.test(u)) continue;
+        seen.add(u);
+        finalSources.push({ url: u, name: `${providerName} ${count++}`, lang, playbackType: getPlaybackType(u) });
+      }
     }
 
-    // Prioritize direct streams
     const rank: Record<PlaybackType, number> = { hls: 0, mp4: 1, iframe: 2 };
     finalSources.sort((a, b) => rank[a.playbackType as PlaybackType] - rank[b.playbackType as PlaybackType]);
 
-    // ── 6. Wrap HLS/MP4 with proxy ────────────────────────────────────────────
-    const baseUrl = new URL(req.url);
-    const proxyBase = `${baseUrl.origin}/api/v1/proxy`;
+    // ── 6. Proxy HLS/MP4 so IP-locked CDN tokens work from browser ───────────
+    const origin = new URL(req.url).origin;
+    const proxyBase = `${origin}/api/v1/proxy`;
 
     const proxiedSources = finalSources.map(s => {
       if (s.playbackType === "hls" || s.playbackType === "mp4") {
-        const params = new URLSearchParams({ url: s.url });
-        return { ...s, url: `${proxyBase}?${params}`, originalUrl: s.url };
+        return { ...s, url: `${proxyBase}?${new URLSearchParams({ url: s.url })}`, originalUrl: s.url };
       }
       return s;
     });
 
-    // Cache for next request
     if (proxiedSources.length > 0) setCached(cacheKey, proxiedSources);
 
     console.log(`[EmbedServe] ${metadata.title} — ${proxiedSources.length} sources in ${Date.now() - start}ms`);
 
     return NextResponse.json({
       success: true,
-      _v: 8,
+      _v: 9,
       data: { type, ...metadata, sources: proxiedSources },
     });
 
