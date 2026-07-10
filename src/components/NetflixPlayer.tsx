@@ -107,27 +107,30 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
           hls.loadSource(url);
           hls.attachMedia(videoRef.current!);
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            videoRef.current?.play().catch(() => {});
-            setIsPlaying(true);
+            // Only mark playing if play() actually succeeds — on mobile autoplay
+            // is blocked by the browser and play() rejects; keeping isPlaying=false
+            // lets the play-button overlay show so the user can tap to start.
+            videoRef.current?.play()
+              .then(() => setIsPlaying(true))
+              .catch(() => { /* autoplay blocked — user must tap play */ });
           });
           hls.on(Hls.Events.ERROR, (event: any, data: any) => {
             if (!data.fatal) return;
             if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-              // Try to recover network errors (e.g. after seek)
-              console.warn("[HLS] Network error, recovering...", data.details);
-              hls.startLoad();
+              // Resume loading from the current seek position
+              hls.startLoad(videoRef.current?.currentTime ?? -1);
             } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-              console.warn("[HLS] Media error, recovering...", data.details);
               hls.recoverMediaError();
             } else {
-              console.error("[HLS] Fatal unrecoverable error, failing over", data);
               handleFailover();
             }
           });
         } else {
           videoRef.current!.src = url;
           videoRef.current!.onerror = () => handleFailover();
-          videoRef.current?.play().then(() => setIsPlaying(true)).catch(() => {});
+          videoRef.current?.play()
+            .then(() => setIsPlaying(true))
+            .catch(() => { /* autoplay blocked on mobile — user taps to start */ });
         }
       };
 
@@ -167,10 +170,10 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
     }
   };
 
-  // Controls Visibility Timeout
+  // Controls Visibility Timeout — mouse + touch
   useEffect(() => {
     let timeout: NodeJS.Timeout;
-    const handleMouseMove = () => {
+    const showAndReset = () => {
       setShowControls(true);
       clearTimeout(timeout);
       timeout = setTimeout(() => {
@@ -178,8 +181,13 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
       }, 3000);
     };
 
-    containerRef.current?.addEventListener("mousemove", handleMouseMove);
-    return () => containerRef.current?.removeEventListener("mousemove", handleMouseMove);
+    const el = containerRef.current;
+    el?.addEventListener("mousemove", showAndReset);
+    el?.addEventListener("touchstart", showAndReset, { passive: true });
+    return () => {
+      el?.removeEventListener("mousemove", showAndReset);
+      el?.removeEventListener("touchstart", showAndReset);
+    };
   }, [isPlaying]);
 
   const togglePlay = () => {
@@ -266,8 +274,11 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
             className="w-full h-full cursor-pointer"
             playsInline
           />
-          {!isPlaying && (currentTime === 0) && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          {!isPlaying && (
+            <div
+              className="absolute inset-0 flex items-center justify-center cursor-pointer"
+              onClick={togglePlay}
+            >
               <div className="bg-yellow-500/20 backdrop-blur-sm p-8 rounded-full border border-yellow-500/50 animate-pulse">
                 <Play size={64} fill="#EAB308" className="text-yellow-500 ml-2" />
               </div>
@@ -320,7 +331,8 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
               max="100"
               value={progress || 0}
               onChange={seek}
-              className="w-full h-1 bg-gray-600 rounded-full appearance-none cursor-pointer accent-yellow-500 hover:h-2 transition-all"
+              style={{ touchAction: "none" }}
+              className="w-full h-2 md:h-1 bg-gray-600 rounded-full appearance-none cursor-pointer accent-yellow-500 md:hover:h-2 transition-all"
             />
           </div>
 
