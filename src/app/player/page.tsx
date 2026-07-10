@@ -24,6 +24,8 @@ interface EmbedSource {
   name: string;
   label: string;
   url: string;
+  playbackType?: "hls" | "mp4" | "iframe";
+  lang?: string;
 }
 
 interface EpisodeData {
@@ -74,6 +76,20 @@ interface AdData {
   imageUrl?: string;
   clickUrl?: string;
   duration: number;
+}
+
+// ─── Helpers ────────────────────────────────
+
+function derivePlaybackType(url: string): "hls" | "mp4" | "iframe" {
+  if (!url) return "iframe";
+  if (/\.m3u8(?:[?#]|$)/i.test(url) || url.includes(".m3u8")) return "hls";
+  if (/\.mp4(?:[?#]|$)/i.test(url) || url.includes(".mp4")) return "mp4";
+  return "iframe";
+}
+
+function isDirectStream(source: EmbedSource): boolean {
+  const pt = source.playbackType || derivePlaybackType(source.url);
+  return pt === "hls" || pt === "mp4";
 }
 
 // ─── Constants ──────────────────────────────
@@ -231,10 +247,12 @@ export default function PlayerPage() {
                 const res = await fetch(source.url);
                 const data = await res.json();
                 if (!data.sources || data.sources.length === 0) return [];
-                return data.sources.map((scrapedSource: { url: string; name?: string }, index: number) => ({
+                return data.sources.map((scrapedSource: { url: string; name?: string; playbackType?: string; lang?: string }, index: number) => ({
                   name: `${source.name}-${index}`,
                   label: scrapedSource.name || `${source.label} ${index + 1}`,
                   url: scrapedSource.url,
+                  playbackType: (scrapedSource.playbackType || derivePlaybackType(scrapedSource.url)) as "hls" | "mp4" | "iframe",
+                  lang: scrapedSource.lang,
                 }));
               } catch {
                 return [];
@@ -263,8 +281,8 @@ export default function PlayerPage() {
         const id = parseInt(urlParams.get("id") || "0");
         if (id) {
           const fallbackSources = [
-            { name: "vidsrc", label: "VidSrc (Alternativo)", url: type === "movie" ? `https://vidsrc.xyz/embed/movie/${id}` : `https://vidsrc.xyz/embed/tv/${id}/${urlParams.get("season") || 1}/${urlParams.get("episode") || 1}` },
-            { name: "vidsrc-cc", label: "VidSrc CC", url: type === "movie" ? `https://vidsrc.cc/v2/embed/movie/${id}` : `https://vidsrc.cc/v2/embed/tv/${id}/${urlParams.get("season") || 1}/${urlParams.get("episode") || 1}` }
+            { name: "vidsrc", label: "VidSrc (Alternativo)", url: type === "movie" ? `https://vidsrc.xyz/embed/movie/${id}` : `https://vidsrc.xyz/embed/tv/${id}/${urlParams.get("season") || 1}/${urlParams.get("episode") || 1}`, playbackType: "iframe" as const },
+            { name: "vidsrc-cc", label: "VidSrc CC", url: type === "movie" ? `https://vidsrc.cc/v2/embed/movie/${id}` : `https://vidsrc.cc/v2/embed/tv/${id}/${urlParams.get("season") || 1}/${urlParams.get("episode") || 1}`, playbackType: "iframe" as const }
           ];
           setSources(fallbackSources);
           setActiveSource(fallbackSources[0].url);
@@ -499,8 +517,10 @@ export default function PlayerPage() {
       )}
 
       {/* ── VIDEO PLAYER / IFRAME FALLBACK ── */}
-      {!loading && activeSource && (
-        activeSource.includes(".m3u8") || activeSource.includes(".mp4") ? (
+      {!loading && activeSource && (() => {
+        const activeSourceObj = sources.find(s => s.url === activeSource);
+        const isDirect = activeSourceObj ? isDirectStream(activeSourceObj) : isDirectStream({ name: "", label: "", url: activeSource });
+        return isDirect ? (
           <div className="absolute inset-0 w-full h-full z-10">
             <Player url={activeSource} title={data?.title} />
           </div>
@@ -514,8 +534,8 @@ export default function PlayerPage() {
             style={{ border: "none" }}
             title={`${data?.title || "Player"} - Streamix`}
           />
-        )
-      )}
+        );
+      })()}
 
       {/* ── PRE-ROLL AD OVERLAY ── */}
       {adVisible && !loading && (
