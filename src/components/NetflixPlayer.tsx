@@ -50,6 +50,9 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
   const seekValueRef = useRef<number | null>(null);
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekDisplay, setSeekDisplay] = useState(0);
+  // Shared seek/source timeout ref so commitSeek can re-arm it
+  const bufferTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const networkRecoveriesRef = useRef(0);
 
   useEffect(() => {
     setValidSources(sortByPlayback(sources));
@@ -93,22 +96,27 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
     }
 
     let cancelled = false;
-    // Hard timeout: if nothing plays within 12s, try the next source
-    let sourceTimeout: ReturnType<typeof setTimeout> | null = null;
+    networkRecoveriesRef.current = 0;
 
-    const clearSourceTimeout = () => {
-      if (sourceTimeout) { clearTimeout(sourceTimeout); sourceTimeout = null; }
+    // Re-usable buffer/seek timeout stored in ref so commitSeek can re-arm it
+    const clearBufTimeout = () => {
+      if (bufferTimeoutRef.current) { clearTimeout(bufferTimeoutRef.current); bufferTimeoutRef.current = null; }
     };
 
-    const armSourceTimeout = () => {
-      clearSourceTimeout();
-      sourceTimeout = setTimeout(() => {
+    // After `ms` ms of continuous buffering/stalling, try next source
+    const armBufTimeout = (ms = 12000) => {
+      clearBufTimeout();
+      bufferTimeoutRef.current = setTimeout(() => {
         if (!cancelled) {
-          console.warn("[Player] Source timeout — trying next source");
+          console.warn("[Player] Buffer/seek timeout — trying next source");
           handleFailover();
         }
-      }, 12000);
+      }, ms);
     };
+
+    // Alias so existing code below keeps working
+    const armSourceTimeout = () => armBufTimeout(12000);
+    const clearSourceTimeout = clearBufTimeout;
 
     const startNative = () => {
       armSourceTimeout();
@@ -162,9 +170,15 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
         hls.on(HlsLib.Events.ERROR, (_event: any, data: any) => {
           if (cancelled) return;
           if (!data.fatal) return;
-          clearSourceTimeout();
+          clearBufTimeout();
           if (data.type === HlsLib.ErrorTypes.NETWORK_ERROR) {
-            hls.startLoad(video.currentTime ?? -1);
+            if (networkRecoveriesRef.current < 2) {
+              networkRecoveriesRef.current++;
+              hls.startLoad(video.currentTime ?? -1);
+              armBufTimeout(8000); // if still stuck in 8s → failover
+            } else {
+              handleFailover(); // give up after 2 network recoveries
+            }
           } else if (data.type === HlsLib.ErrorTypes.MEDIA_ERROR) {
             hls.recoverMediaError();
           } else {
@@ -181,7 +195,7 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
 
     return () => {
       cancelled = true;
-      clearSourceTimeout();
+      clearBufTimeout();
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
@@ -236,7 +250,12 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
   };
 
   const handleWaiting = () => setIsBuffering(true);
-  const handlePlaying = () => setIsBuffering(false);
+  const handlePlaying = () => {
+    setIsBuffering(false);
+    // Seek finished buffering — clear any seek timeout
+    if (bufferTimeoutRef.current) { clearTimeout(bufferTimeoutRef.current); bufferTimeoutRef.current = null; }
+    networkRecoveriesRef.current = 0;
+  };
   const handleCanPlay = () => setIsBuffering(false);
 
   // ── Seeking — update display while dragging, seek only on release ─────────
@@ -255,6 +274,14 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
     setProgress(val);
     setIsSeeking(false);
     seekValueRef.current = null;
+    networkRecoveriesRef.current = 0; // reset recovery counter on each seek
+    // Arm an 8s timeout: if still buffering after seek, failover
+    if (bufferTimeoutRef.current) clearTimeout(bufferTimeoutRef.current);
+    bufferTimeoutRef.current = setTimeout(() => {
+      if (hlsRef.current) {
+        hlsRef.current.startLoad(videoRef.current?.currentTime ?? -1);
+      }
+    }, 8000);
   };
 
   // ── Transport controls ────────────────────────────────────────────────────
