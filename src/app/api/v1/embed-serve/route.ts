@@ -239,8 +239,21 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Wrap HLS/MP4 URLs through proxy so CDN IP-locked tokens work from the browser.
+    // Vercel (AWS) fetches them, same IP as where the token was minted.
+    const baseUrl = new URL(req.url);
+    const proxyBase = `${baseUrl.origin}/api/v1/proxy`;
+
+    const proxiedSources = finalSources.map(s => {
+      if (s.playbackType === "hls" || s.playbackType === "mp4") {
+        const params = new URLSearchParams({ url: s.url });
+        return { ...s, url: `${proxyBase}?${params.toString()}`, originalUrl: s.url };
+      }
+      return s;
+    });
+
     // Safety net: strip dead hosts and YouTube embeds
-    const safeSources = finalSources.filter(s => !/minochinos|earnvids|short\.icu/i.test(s.url) && !/youtube\.com|youtu\.be/i.test(s.url));
+    const safeSources = proxiedSources.filter(s => !/minochinos|earnvids|short\.icu/i.test(s.originalUrl || s.url) && !/youtube\.com|youtu\.be/i.test(s.url));
 
     // Prioritize direct streams (hls > mp4) over site iframes so the client
     // defaults to our own player whenever a direct source exists. Array.sort is
