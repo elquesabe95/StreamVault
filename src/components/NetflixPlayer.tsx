@@ -93,39 +93,58 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
     }
 
     let cancelled = false;
+    // Hard timeout: if nothing plays within 12s, try the next source
+    let sourceTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const clearSourceTimeout = () => {
+      if (sourceTimeout) { clearTimeout(sourceTimeout); sourceTimeout = null; }
+    };
+
+    const armSourceTimeout = () => {
+      clearSourceTimeout();
+      sourceTimeout = setTimeout(() => {
+        if (!cancelled) {
+          console.warn("[Player] Source timeout — trying next source");
+          handleFailover();
+        }
+      }, 12000);
+    };
 
     const startNative = () => {
+      armSourceTimeout();
       video.src = url;
-      video.onerror = () => { if (!cancelled) handleFailover(); };
+      video.onerror = () => { if (!cancelled) { clearSourceTimeout(); handleFailover(); } };
+      video.addEventListener("canplay", () => { clearSourceTimeout(); setIsBuffering(false); }, { once: true });
       video.play()
         .then(() => { if (!cancelled) setIsPlaying(true); })
         .catch(() => { /* autoplay blocked — user taps to start */ });
     };
 
     const startHls = async () => {
-      // Use the installed hls.js package — no CDN request needed
       const HlsLib = (await import("hls.js")).default;
-
       if (cancelled) return;
 
       if (playbackType === "hls" && HlsLib.isSupported()) {
+        armSourceTimeout();
+
         const hls = new HlsLib({
           enableWorker: true,
-          lowLatencyMode: false,       // VOD streams, not live
-          backBufferLength: 60,        // keep 60s behind playhead for backward seek
+          lowLatencyMode: false,
+          backBufferLength: 60,
           maxBufferLength: 30,
           maxMaxBufferLength: 600,
           maxBufferHole: 0.5,
-          nudgeMaxRetry: 10,
-          startLevel: -1,             // auto quality
+          nudgeMaxRetry: 5,
+          startLevel: -1,
           abrEwmaDefaultEstimate: 1000000,
-          fragLoadingTimeOut: 30000,
-          manifestLoadingTimeOut: 20000,
-          levelLoadingTimeOut: 20000,
-          fragLoadingMaxRetry: 3,     // fail fast → our handler retries
+          // Shorter timeouts → faster failover to next source
+          manifestLoadingTimeOut: 8000,
+          manifestLoadingMaxRetry: 1,
+          levelLoadingTimeOut: 8000,
+          levelLoadingMaxRetry: 1,
+          fragLoadingTimeOut: 10000,
+          fragLoadingMaxRetry: 2,
           fragLoadingRetryDelay: 500,
-          manifestLoadingMaxRetry: 3,
-          levelLoadingMaxRetry: 3,
         });
 
         hlsRef.current = hls;
@@ -134,17 +153,17 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
 
         hls.on(HlsLib.Events.MANIFEST_PARSED, () => {
           if (cancelled) return;
+          clearSourceTimeout(); // manifest OK — stream is alive
           video.play()
             .then(() => { if (!cancelled) setIsPlaying(true); })
-            .catch(() => { /* autoplay blocked on mobile — user taps to start */ });
+            .catch(() => { /* autoplay blocked on mobile */ });
         });
 
         hls.on(HlsLib.Events.ERROR, (_event: any, data: any) => {
           if (cancelled) return;
           if (!data.fatal) return;
-
+          clearSourceTimeout();
           if (data.type === HlsLib.ErrorTypes.NETWORK_ERROR) {
-            // Restart loading from current position
             hls.startLoad(video.currentTime ?? -1);
           } else if (data.type === HlsLib.ErrorTypes.MEDIA_ERROR) {
             hls.recoverMediaError();
@@ -154,7 +173,6 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
         });
 
       } else {
-        // iOS Safari: native HLS
         startNative();
       }
     };
@@ -163,6 +181,7 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
 
     return () => {
       cancelled = true;
+      clearSourceTimeout();
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
@@ -332,11 +351,22 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
             </div>
           )}
 
-          {/* Initial loading (buffering before first play) */}
+          {/* Initial loading — tappeable so mobile autoplay unlock works */}
           {isBuffering && !isPlaying && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 pointer-events-none">
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-4 cursor-pointer"
+              onClick={togglePlay}
+            >
               <Loader2 className="animate-spin text-yellow-500" size={56} />
               <p className="text-gray-400 text-sm">Cargando stream...</p>
+              {validSources.length > 1 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); nextSource(); }}
+                  className="mt-2 bg-white/10 hover:bg-white/20 text-white text-xs px-4 py-2 rounded-xl border border-white/20 flex items-center gap-2"
+                >
+                  Probar siguiente fuente <SkipForward size={14} />
+                </button>
+              )}
             </div>
           )}
         </>
