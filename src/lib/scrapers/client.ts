@@ -113,8 +113,7 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   const cacheBust = `_cb=${Date.now()}`;
   const freshUrl = url.includes("?") ? `${url}&${cacheBust}` : `${url}?${cacheBust}`;
 
-  // When proxy is requested, go straight to it (skip direct/curl which are blocked on Render)
-  if (useProxy) {
+  const runProxyChain = async (): Promise<string> => {
     for (const proxy of getProxies()) {
       const isCFWorker = proxy.includes("workers.dev");
       const isCorsProxy = proxy.includes("corsproxy.io");
@@ -141,6 +140,12 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
         return html;
       }
     }
+    return "";
+  };
+
+  if (useProxy) {
+    const html = await runProxyChain();
+    if (html) return html;
     console.warn(`[readPage] Proxy failed for: ${url.substring(0, 80)}`);
     return "";
   }
@@ -165,7 +170,12 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
     return html;
   }
 
-  console.warn(`[readPage] FAILED after all attempts: ${url.substring(0, 80)}`);
+  // Fallback to proxy if direct/curl/native failed
+  console.warn(`[readPage] Direct/Curl/Native failed for: ${url.substring(0, 60)}. Trying proxy fallback...`);
+  html = await runProxyChain();
+  if (html) return html;
+
+  console.warn(`[readPage] FAILED after all attempts (including proxy fallback): ${url.substring(0, 80)}`);
   return "";
 }
 
