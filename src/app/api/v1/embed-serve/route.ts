@@ -10,6 +10,9 @@ import { searchCuevana, getCuevanaSources, getCuevanaEpisodeUrl } from "@/lib/sc
 import { searchCinecalidad, getCinecalidadSources, getCinecalidadEpisodeUrl } from "@/lib/scrapers/cinecalidad";
 import { searchGnula, getGnulaSources, getGnulaEpisodeUrl } from "@/lib/scrapers/gnula";
 import { searchYandi, getYandiSources, getYandiEpisodeUrl } from "@/lib/scrapers/yandispoiler";
+import { searchAnimeAV1, getAnimeAV1Episodes, getAnimeAV1Servers } from "@/lib/scrapers/animeav1";
+import { searchJKAnime, getJKAnimeServers } from "@/lib/scrapers/jkanime";
+import { searchAnimeFLV, getAnimeFLVServers } from "@/lib/scrapers/animeflv";
 import { resolveStream } from "@/lib/scrapers/resolver";
 
 type PlaybackType = "hls" | "mp4" | "iframe";
@@ -102,6 +105,7 @@ export async function GET(req: NextRequest) {
         backdrop: tmdbImage(show.backdrop_path, "w1280"),
         year: show.first_air_date?.substring(0, 4) || "",
         rating: show.vote_average, season, episode,
+        isAnime: show.genres?.some((g: any) => g.id === 16) && show.origin_country?.includes("JP"),
       };
       query = show.name;
     }
@@ -136,88 +140,139 @@ export async function GET(req: NextRequest) {
 
     type RawItem = { url: string; lang?: string };
 
-    const providers: { name: string; fn: () => Promise<RawItem[]> }[] = [
-      {
-        name: "PelisPedia",
-        fn: async () => {
-          const res = await searchPelispedia(query);
-          const match = findMatch(res);
-          let targetUrl = match?.url || (type === "movie"
-            ? `https://pelispedia.mov/pelicula/${slug}/`
-            : `https://pelispedia.mov/serie/${slug}/temporada/${season}/capitulo/${episode}`);
-          if (match && type !== "movie") {
-            const ep = await getPelispediaEpisodeUrl(match.url, season, episode);
-            if (ep) targetUrl = ep; else return [];
-          }
-          const s = await getPelispediaSources(targetUrl);
-          return s.map((x: any) => ({ ...x, lang: "Latino" }));
-        },
-      },
-      {
-        name: "Gnula",
-        fn: async () => {
-          const res = await searchGnula(query);
-          const match = findMatch(res);
-          let targetUrl = match?.url || `https://ww3.gnulahd.nu/ver/${slug}/`;
-          if (match && type !== "movie") {
-            const ep = await getGnulaEpisodeUrl(match.url, season, episode);
-            if (ep) targetUrl = ep; else return [];
-          }
-          const s = await getGnulaSources(targetUrl);
-          return s.map((x: any) => ({ ...x, lang: "Latino" }));
-        },
-      },
-      {
-        name: "Cuevana",
-        fn: async () => {
-          const res = await searchCuevana(query);
-          const match = findMatch(res);
-          let targetUrl = match?.url || (type === "movie"
-            ? `https://cuevana.biz/pelicula/${slug}/`
-            : `https://cuevana.biz/serie/${slug}/temporada/${season}/capitulo/${episode}`);
-          if (match && type !== "movie") {
-            const ep = await getCuevanaEpisodeUrl(match.url, season, episode);
-            if (ep) targetUrl = ep; else return [];
-          }
-          const s = await getCuevanaSources(targetUrl);
-          return s.map((x: any) => ({
-            ...x,
-            lang: x.lang === "spanish" ? "Castellano" : x.lang === "subbed" ? "Sub" : "Latino",
-          }));
-        },
-      },
-      {
-        name: "YandiSpoiler",
-        fn: async () => {
-          const res = await searchYandi(query);
-          const match = findMatch(res);
-          let targetUrl = match?.url || (type === "movie"
-            ? `https://yandispoiler.net/pelicula/${slug}/`
-            : `https://yandispoiler.net/serie/${slug}/temporada/${season}/capitulo/${episode}`);
-          if (match && type !== "movie") {
-            const ep = await getYandiEpisodeUrl(match.url, season, episode);
-            if (ep) targetUrl = ep; else return [];
-          }
-          const s = await getYandiSources(targetUrl);
-          return s.map((x: any) => ({ ...x, lang: "Latino" }));
-        },
-      },
-      {
-        name: "CineCalidad",
-        fn: async () => {
-          const res = await searchCinecalidad(query);
-          const match = findMatch(res);
-          if (!match) return [];
-          let targetUrl = match.url;
-          if (type !== "movie") {
-            const ep = await getCinecalidadEpisodeUrl(match.url, season, episode);
-            if (ep) targetUrl = ep; else return [];
-          }
-          const s = await getCinecalidadSources(targetUrl);
-          return s.map((x: any) => ({ ...x, lang: "Latino" }));
-        },
-      },
-    ];
+    const isAnime = type !== "movie" && !!metadata.isAnime;
+
+    const providers: { name: string; fn: () => Promise<RawItem[]> }[] = isAnime
+      ? [
+          // ── Anime providers ───────────────────────────────────────────────────
+          {
+            name: "AnimeAV1",
+            fn: async () => {
+              const res = await searchAnimeAV1(query);
+              const match = res[0] || null;
+              if (!match) return [];
+              const episodes = await getAnimeAV1Episodes(match.url);
+              const ep = episodes.find(e => e.number === episode) || episodes[episode - 1] || episodes[0];
+              if (!ep) return [];
+              const servers = await getAnimeAV1Servers(ep.url);
+              return servers.map(s => ({ url: s.url, lang: s.lang }));
+            },
+          },
+          {
+            name: "JKAnime",
+            fn: async () => {
+              const res = await searchJKAnime(query);
+              if (!res?.length) return [];
+              const match = res.find(r => r.slug) || res[0];
+              const servers = await getJKAnimeServers(match.slug, episode);
+              return servers.map((s: any) => ({ url: s.url || s.remote, lang: "Sub" }));
+            },
+          },
+          {
+            name: "AnimeFLV",
+            fn: async () => {
+              const res = await searchAnimeFLV(query);
+              if (!res?.length) return [];
+              const servers = await getAnimeFLVServers(res[0].url, episode);
+              return servers.map((s: any) => ({ url: s.url || s.remote, lang: "Sub" }));
+            },
+          },
+          {
+            name: "PelisPedia",
+            fn: async () => {
+              const res = await searchPelispedia(query);
+              const match = findMatch(res);
+              if (!match) return [];
+              const ep = await getPelispediaEpisodeUrl(match.url, season, episode);
+              if (!ep) return [];
+              const s = await getPelispediaSources(ep);
+              return s.map((x: any) => ({ ...x, lang: "Latino" }));
+            },
+          },
+        ]
+      : [
+          // ── Spanish movie/TV providers ────────────────────────────────────────
+          {
+            name: "PelisPedia",
+            fn: async () => {
+              const res = await searchPelispedia(query);
+              const match = findMatch(res);
+              let targetUrl = match?.url || (type === "movie"
+                ? `https://pelispedia.mov/pelicula/${slug}/`
+                : `https://pelispedia.mov/serie/${slug}/temporada/${season}/capitulo/${episode}`);
+              if (match && type !== "movie") {
+                const ep = await getPelispediaEpisodeUrl(match.url, season, episode);
+                if (ep) targetUrl = ep; else return [];
+              }
+              const s = await getPelispediaSources(targetUrl);
+              return s.map((x: any) => ({ ...x, lang: "Latino" }));
+            },
+          },
+          {
+            name: "Gnula",
+            fn: async () => {
+              const res = await searchGnula(query);
+              const match = findMatch(res);
+              let targetUrl = match?.url || `https://ww3.gnulahd.nu/ver/${slug}/`;
+              if (match && type !== "movie") {
+                const ep = await getGnulaEpisodeUrl(match.url, season, episode);
+                if (ep) targetUrl = ep; else return [];
+              }
+              const s = await getGnulaSources(targetUrl);
+              return s.map((x: any) => ({ ...x, lang: "Latino" }));
+            },
+          },
+          {
+            name: "Cuevana",
+            fn: async () => {
+              const res = await searchCuevana(query);
+              const match = findMatch(res);
+              let targetUrl = match?.url || (type === "movie"
+                ? `https://cuevana.biz/pelicula/${slug}/`
+                : `https://cuevana.biz/serie/${slug}/temporada/${season}/capitulo/${episode}`);
+              if (match && type !== "movie") {
+                const ep = await getCuevanaEpisodeUrl(match.url, season, episode);
+                if (ep) targetUrl = ep; else return [];
+              }
+              const s = await getCuevanaSources(targetUrl);
+              return s.map((x: any) => ({
+                ...x,
+                lang: x.lang === "spanish" ? "Castellano" : x.lang === "subbed" ? "Sub" : "Latino",
+              }));
+            },
+          },
+          {
+            name: "YandiSpoiler",
+            fn: async () => {
+              const res = await searchYandi(query);
+              const match = findMatch(res);
+              let targetUrl = match?.url || (type === "movie"
+                ? `https://yandispoiler.net/pelicula/${slug}/`
+                : `https://yandispoiler.net/serie/${slug}/temporada/${season}/capitulo/${episode}`);
+              if (match && type !== "movie") {
+                const ep = await getYandiEpisodeUrl(match.url, season, episode);
+                if (ep) targetUrl = ep; else return [];
+              }
+              const s = await getYandiSources(targetUrl);
+              return s.map((x: any) => ({ ...x, lang: "Latino" }));
+            },
+          },
+          {
+            name: "CineCalidad",
+            fn: async () => {
+              const res = await searchCinecalidad(query);
+              const match = findMatch(res);
+              if (!match) return [];
+              let targetUrl = match.url;
+              if (type !== "movie") {
+                const ep = await getCinecalidadEpisodeUrl(match.url, season, episode);
+                if (ep) targetUrl = ep; else return [];
+              }
+              const s = await getCinecalidadSources(targetUrl);
+              return s.map((x: any) => ({ ...x, lang: "Latino" }));
+            },
+          },
+        ];
 
     // ── 4. Run providers in parallel; each resolves its own sources fully ─────
     // Timeout wraps the ENTIRE scrape+resolve for each provider.
