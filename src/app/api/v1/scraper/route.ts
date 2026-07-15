@@ -158,7 +158,7 @@ export async function GET(req: NextRequest) {
           const match = findExactMatch(res);
           if (!match) return [];
           let targetUrl = match.url;
-          if (match.url.includes("/serie/")) {
+          if (match.url.includes("/serie/") || match.url.includes("/anime/")) {
             const epUrl = await getPelispediaEpisodeUrl(match.url, season, episode);
             if (epUrl) targetUrl = epUrl;
             else return [];
@@ -166,6 +166,37 @@ export async function GET(req: NextRequest) {
           const sources = await getPelispediaSources(targetUrl);
           return sources.map(source => ({ ...source, lang: "Latino" }));
         }},
+        { name: "Cuevana", key: "cuevana", fn: async () => {
+          const res = await searchCuevana(query);
+          const match = findExactMatch(res);
+          if (!match) return [];
+          let targetUrl = match.url;
+          const epUrl = await getCuevanaEpisodeUrl(match.url, season, episode);
+          if (epUrl) targetUrl = epUrl;
+          else return [];
+          return await getCuevanaSources(targetUrl);
+        }},
+        { name: "CineCalidad", key: "cinecalidad", fn: async () => {
+          const res = await searchCinecalidad(query);
+          const match = findExactMatch(res);
+          if (!match) return [];
+          let targetUrl = match.url;
+          const epUrl = await getCinecalidadEpisodeUrl(match.url, season, episode);
+          if (epUrl) targetUrl = epUrl;
+          else return [];
+          return await getCinecalidadSources(targetUrl);
+        }},
+        { name: "Doramasflix", key: "doramasflix", fn: async () => {
+          const res = await searchDoramasflix(query);
+          const match = findExactMatch(res);
+          if (!match) return [];
+          let targetUrl = match.url;
+          const eps = await getDoramasflixEpisodes(match.slug);
+          const ep = eps.find(e => e.number === episode);
+          if (ep) targetUrl = ep.url;
+          else return [];
+          return await getDoramasflixServers(targetUrl);
+        }}
 
       );
     } else {

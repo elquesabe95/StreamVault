@@ -168,8 +168,8 @@ export async function getPelispediaEpisodeUrl(seriesUrl: string, season: number,
   try {
     const html = await readPage(seriesUrl, {}, true);
     
-    // Primary pattern: /serie/slug/temporada/S/capitulo/E (confirmed from live site)
-    const primaryPattern = new RegExp(`/serie/[^"]+/temporada/${season}/capitulo/${episode}[^"]*`, 'i');
+    // Primary pattern: /serie/slug/temporada/S/capitulo/E or /anime/slug/temporada/S/capitulo/E (confirmed from live site)
+    const primaryPattern = new RegExp(`/(serie|anime)/[^"]+/temporada/${season}/capitulo/${episode}[^"]*`, 'i');
     const primaryMatch = primaryPattern.exec(html);
     if (primaryMatch) {
       return `${BASE_URL}${primaryMatch[0]}`;
