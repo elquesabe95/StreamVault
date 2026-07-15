@@ -172,12 +172,12 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
           if (!data.fatal) return;
           clearBufTimeout();
           if (data.type === HlsLib.ErrorTypes.NETWORK_ERROR) {
-            if (networkRecoveriesRef.current < 2) {
+            if (networkRecoveriesRef.current < 4) {
               networkRecoveriesRef.current++;
               hls.startLoad(video.currentTime ?? -1);
-              armBufTimeout(8000); // if still stuck in 8s → failover
+              armBufTimeout(8000);
             } else {
-              handleFailover(); // give up after 2 network recoveries
+              handleFailover();
             }
           } else if (data.type === HlsLib.ErrorTypes.MEDIA_ERROR) {
             hls.recoverMediaError();
@@ -274,14 +274,14 @@ export default function NetflixPlayer({ sources, title, onBack, headers, showLan
     setProgress(val);
     setIsSeeking(false);
     seekValueRef.current = null;
-    networkRecoveriesRef.current = 0; // reset recovery counter on each seek
-    // Arm an 8s timeout: if still buffering after seek, failover
+    networkRecoveriesRef.current = 0;
     if (bufferTimeoutRef.current) clearTimeout(bufferTimeoutRef.current);
+    // 15s: nudge HLS to reload at seek position; 10s more → failover
     bufferTimeoutRef.current = setTimeout(() => {
-      if (hlsRef.current) {
-        hlsRef.current.startLoad(videoRef.current?.currentTime ?? -1);
-      }
-    }, 8000);
+      if (!hlsRef.current || !videoRef.current) return;
+      hlsRef.current.startLoad(videoRef.current.currentTime);
+      bufferTimeoutRef.current = setTimeout(() => handleFailover(), 10000);
+    }, 15000);
   };
 
   // ── Transport controls ────────────────────────────────────────────────────

@@ -57,12 +57,21 @@ const embedSources: EmbedSource[] = [
     needsScraping: true,
   },
   {
+    name: "anime1v",
+    label: "Anime1V (Latino/Sub)",
+    type: "tv",
+    getMovieUrl: () => "",
+    getTvUrl: (id, s, e) => `${id}/${s}/${e}`,
+    priority: 5,
+    needsScraping: true,
+  },
+  {
     name: "doramasflix",
     label: "DoramasFlix (Latino/Sub)",
     type: "both",
     getMovieUrl: (id) => `${id}`,
     getTvUrl: (id, s, e) => `${id}/${s}/${e}`,
-    priority: 5,
+    priority: 6,
     needsScraping: true,
   },
 ];

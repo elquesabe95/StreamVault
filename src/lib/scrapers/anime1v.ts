@@ -1,6 +1,4 @@
-const ANIME1V_BASE_URL = process.env.ANIME1V_API_URL || "https://anime1v-api-cloned.onrender.com";
-const ANIME1V_API_KEY = process.env.ANIME1V_API_KEY || "";
-const ANIME1V_AUTH_DISABLED = process.env.ANIME1V_AUTH_DISABLED === "true";
+import { searchAnimeAV1, getAnimeAV1Episodes, getAnimeAV1Servers } from "./animeav1";
 
 interface Anime1vSearchResult {
   title: string;
@@ -10,6 +8,7 @@ interface Anime1vSearchResult {
 interface Anime1vEpisode {
   name: string;
   url: string;
+  number?: number;
 }
 
 interface Anime1vEpisodeData {
@@ -28,57 +27,65 @@ interface Anime1vEpisodeData {
   };
 }
 
-function authParams(params: URLSearchParams) {
-  if (!ANIME1V_AUTH_DISABLED && ANIME1V_API_KEY) {
-    params.set("apiKey", ANIME1V_API_KEY);
-  }
-  return params;
-}
-
-function authHeaders(): HeadersInit {
-  return !ANIME1V_AUTH_DISABLED && ANIME1V_API_KEY
-    ? { "X-API-Key": ANIME1V_API_KEY }
-    : {};
-}
-
-function unwrapData(data: any) {
-  return data?.data || data;
-}
-
 export async function searchAnime1v(query: string): Promise<Anime1vSearchResult[]> {
-  const params = authParams(new URLSearchParams({ q: query, domain: "animeav1.com" }));
-  const res = await fetch(`${ANIME1V_BASE_URL}/api/v1/anime/search?${params.toString()}`, {
-    headers: authHeaders(),
-  });
-  if (!res.ok) throw new Error(`Anime1V search error ${res.status}`);
-  const data = await res.json();
-  if (Array.isArray(data)) return data;
-  const payload = unwrapData(data);
-  if (Array.isArray(payload)) return payload;
-  if (payload.results) return payload.results;
-  return [];
+  try {
+    const results = await searchAnimeAV1(query);
+    return results.map(r => ({
+      title: r.title,
+      url: r.url,
+    }));
+  } catch (error) {
+    console.error("[Anime1v] search failure, falling back to empty:", error);
+    return [];
+  }
 }
 
 export async function getAnime1vEpisodes(animeUrl: string): Promise<Anime1vEpisode[]> {
-  const params = authParams(new URLSearchParams({ url: animeUrl }));
-  const res = await fetch(`${ANIME1V_BASE_URL}/api/v1/anime/info?${params.toString()}`, {
-    headers: authHeaders(),
-  });
-  if (!res.ok) throw new Error(`Anime1V info error ${res.status}`);
-  const data = await res.json();
-  const payload = unwrapData(data);
-  return payload.episodes || [];
+  try {
+    const episodes = await getAnimeAV1Episodes(animeUrl);
+    return episodes.map(e => ({
+      name: e.title,
+      url: e.url,
+      number: e.number,
+    }));
+  } catch (error) {
+    console.error("[Anime1v] episodes failure, falling back to empty:", error);
+    return [];
+  }
 }
 
 export async function getAnime1vEpisodeLinks(episodeUrl: string): Promise<Anime1vEpisodeData> {
-  const params = authParams(new URLSearchParams({
-    url: episodeUrl,
-    excludeServers: "mega,1fichier",
-  }));
-  const res = await fetch(`${ANIME1V_BASE_URL}/api/v1/anime/episode?${params.toString()}`, {
-    headers: authHeaders(),
-  });
-  if (!res.ok) throw new Error(`Anime1V episode error ${res.status}`);
-  const data = await res.json();
-  return unwrapData(data);
+  try {
+    const servers = await getAnimeAV1Servers(episodeUrl);
+    
+    const SUB: { server?: string; url: string; quality?: string }[] = [];
+    const DUB: { server?: string; url: string; quality?: string }[] = [];
+
+    for (const source of servers) {
+      const item = {
+        server: source.server,
+        url: source.url,
+        quality: source.quality,
+      };
+      if (source.lang === "Latino") {
+        DUB.push(item);
+      } else {
+        SUB.push(item);
+      }
+    }
+
+    return {
+      streamLinks: { SUB, DUB },
+      downloadLinks: { SUB: [], DUB: [] },
+      downloads: [],
+    };
+  } catch (error) {
+    console.error("[Anime1v] links failure, falling back to empty:", error);
+    return {
+      streamLinks: { SUB: [], DUB: [] },
+      downloadLinks: { SUB: [], DUB: [] },
+      downloads: [],
+    };
+  }
 }
+
