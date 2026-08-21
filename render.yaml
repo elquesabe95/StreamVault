@@ -2,14 +2,22 @@ services:
   - type: web
     name: streamvault
     runtime: node
-    buildCommand: npm install && npm run build
+    plan: free
+    buildCommand: npm ci && npm run build
     startCommand: node .next/standalone/server.js
+    healthCheckPath: /api
     envVars:
+      - key: NODE_VERSION
+        value: "22"
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
-        value: file:./prisma/dev.db
-      - key: PORT
-        value: 10000
+      # server.js binds to process.env.HOSTNAME; Render sets it to the container
+      # hostname, which would make the server unreachable. Force 0.0.0.0.
       - key: HOSTNAME
         value: 0.0.0.0
+      # Prisma's postinstall generate reads this from the schema's env().
+      - key: DATABASE_URL
+        value: file:./prisma/dev.db
+      # Secrets — set the real values in the Render dashboard.
+      - key: TMDB_API_KEY
+        sync: false

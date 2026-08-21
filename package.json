@@ -2,9 +2,13 @@
   "name": "nextjs_tailwind_shadcn_ts",
   "version": "0.2.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
+    "postbuild": "node scripts/postbuild.mjs",
     "start": "node .next/standalone/server.js",
     "lint": "eslint .",
     "db:push": "prisma db push",
