@@ -1,7 +1,7 @@
 "use client";
 
 export default function Home() {
-  const BASE = "https://stream-vault-two-phi.vercel.app";
+  const BASE = typeof window !== "undefined" ? window.location.origin : "";
 
   return (
     <>

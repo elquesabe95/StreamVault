@@ -10,7 +10,7 @@ export default function EmbedGenerator() {
   const [episode, setEpisode] = useState("1");
   const [copied, setCopied] = useState(false);
 
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://stream-vault-two-phi.vercel.app";
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_BASE_URL || "");
   
   const embedUrl = type === "movie" 
     ? `${baseUrl}/embed/movie/${tmdbId}`

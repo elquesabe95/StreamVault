@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 
 export default function DocsPage() {
-  const BASE = typeof window !== "undefined" ? window.location.origin : "https://stream-vault-two-phi.vercel.app";
+  const BASE = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_BASE_URL || "");
   const [activeTab, setActiveTab] = useState("embed");
   const [demoType, setDemoType] = useState("movie");
   const [demoId, setDemoId] = useState("272");

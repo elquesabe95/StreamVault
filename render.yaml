@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: streamvault
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: node .next/standalone/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:./prisma/dev.db
+      - key: PORT
+        value: 10000
+      - key: HOSTNAME
+        value: 0.0.0.0
