@@ -4,6 +4,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
+import { publicOrigin } from "@/lib/public-origin";
+
 const CDN_REFERERS: Record<string, string> = {
   "acek-cdn.com": "https://awish.pro/",
   "dramiyos-cdn.com": "https://awish.pro/",
@@ -75,7 +77,7 @@ function rewriteM3u8(text: string, baseUrl: string, proxyOrigin: string, referer
 export async function GET(req: Request): Promise<Response> {
   const reqUrl = new URL(req.url);
   const { searchParams } = reqUrl;
-  const origin = reqUrl.origin;
+  const origin = publicOrigin(req);
   const url = searchParams.get("url");
   const customReferer = searchParams.get("referer");
 

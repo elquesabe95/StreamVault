@@ -14,6 +14,7 @@ import { searchAnimeAV1, getAnimeAV1Episodes, getAnimeAV1Servers } from "@/lib/s
 import { searchJKAnime, getJKAnimeServers } from "@/lib/scrapers/jkanime";
 import { searchAnimeFLV, getAnimeFLVServers } from "@/lib/scrapers/animeflv";
 import { resolveStream } from "@/lib/scrapers/resolver";
+import { publicOrigin } from "@/lib/public-origin";
 
 type PlaybackType = "hls" | "mp4" | "iframe";
 
@@ -382,7 +383,7 @@ export async function GET(req: NextRequest) {
     finalSources.sort((a, b) => rank[a.playbackType as PlaybackType] - rank[b.playbackType as PlaybackType]);
 
     // ── 6. Proxy HLS/MP4 through our Node.js server (same AWS IP as scraper) ─
-    const origin = new URL(req.url).origin;
+    const origin = publicOrigin(req);
     const proxyBase = `${origin}/api/v1/proxy`;
 
     const proxiedSources = finalSources.map(s => {
