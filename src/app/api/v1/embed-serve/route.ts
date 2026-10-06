@@ -274,29 +274,51 @@ export async function GET(req: NextRequest) {
           },
         ];
 
-    // ── 4. Run providers in parallel; each resolves its own sources fully ─────
+    // Reliability order measured from Render (/api/v1/debug?action=net):
+    // pelispedia, cinecalidad and yandispoiler all answer; cuevana's DNS fails
+    // and gnula 502s after ~14s. With bounded concurrency the order decides who
+    // gets the CPU first, so the dead ones go last instead of starving the rest.
+    if (!isAnime) {
+      const PRIORITY = ["PelisPedia", "CineCalidad", "YandiSpoiler", "Cuevana", "Gnula"];
+      const rank = (n: string) => {
+        const i = PRIORITY.indexOf(n);
+        return i < 0 ? PRIORITY.length : i;
+      };
+      providers.sort((a, b) => rank(a.name) - rank(b.name));
+    }
+
+    // ── 4. Run providers, best first, a couple at a time ─────────────────────
     // Timeout wraps the ENTIRE scrape+resolve for each provider.
     // No per-step timeouts inside — that's what was killing the resolver before.
     //
     // Budget sizing: the old 18s was cut to fit Vercel's 25s function cap. Render
-    // runs a long-lived Node server with no such cap, and every outbound hop there
-    // costs ~8s instead of ~1s, so under 18s no provider ever finished and the
-    // response came back with sources: [] — a player stuck on "Buscando fuentes".
+    // runs a long-lived Node server with no such cap, but its free plan gives
+    // 0.1 CPU, so under 18s no provider ever finished and the response came back
+    // with sources: [] — a player stuck on "Buscando fuentes".
     const PROVIDER_BUDGET = Number(process.env.PROVIDER_BUDGET_MS) || 55000;
-    // Once a directly playable stream is in hand, give stragglers a short grace
-    // period for alternatives instead of burning the whole budget.
+    // Once a directly playable stream is in hand, stop starting new providers and
+    // give whatever is still in flight a short grace period for alternatives.
     const EARLY_EXIT_GRACE = Number(process.env.EARLY_EXIT_GRACE_MS) || 6000;
+    // Running all five at once is counterproductive on 0.1 CPU: they contend for
+    // the same core parsing hundreds of KB of HTML, so the one that would have
+    // succeeded on its own misses the budget. PelisPedia alone finds Interstellar
+    // in 48s; five-way parallel found nothing in 55s.
+    const CONCURRENCY = Math.max(1, Number(process.env.PROVIDER_CONCURRENCY) || 2);
 
     type Hit = { providerName: string; url: string; lang: string };
 
     const pTimeout = <T>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
       Promise.race([p, new Promise<T>(r => setTimeout(() => r(fallback), ms))]);
 
+    const deadline = start + PROVIDER_BUDGET;
     const hits: Hit[] = [];
     let firstStreamAt = 0;
+    let nextProvider = 0;
 
-    const providerRuns = providers.map(p =>
-      pTimeout(
+    const runProvider = async (p: { name: string; fn: () => Promise<RawItem[]> }) => {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) return;
+      const found = await pTimeout(
         (async () => {
           const items: RawItem[] = await p.fn().catch(() => []);
           const resolved = await Promise.all(
@@ -311,24 +333,31 @@ export async function GET(req: NextRequest) {
           );
           return resolved.flat();
         })(),
-        PROVIDER_BUDGET,
+        remaining,
         [] as Hit[]
-      ).then(found => {
-        hits.push(...found);
-        if (!firstStreamAt && found.some(h => getPlaybackType(h.url) !== "iframe")) {
-          firstStreamAt = Date.now();
-          console.log(`[EmbedServe] first stream from ${found[0]?.providerName} at ${Date.now() - start}ms`);
-        }
-        return found;
-      })
-    );
+      );
+      hits.push(...found);
+      if (!firstStreamAt && found.some(h => getPlaybackType(h.url) !== "iframe")) {
+        firstStreamAt = Date.now();
+        console.log(`[EmbedServe] first stream from ${p.name} at ${Date.now() - start}ms`);
+      }
+    };
 
-    // Finish on whichever comes first: all providers done, or a playable stream
-    // plus its grace period.
+    const worker = async () => {
+      for (;;) {
+        // Stop starting new providers once something playable is in hand, or the
+        // budget is spent.
+        if (firstStreamAt || Date.now() >= deadline) return;
+        const idx = nextProvider++;
+        if (idx >= providers.length) return;
+        await runProvider(providers[idx]);
+      }
+    };
+
     await Promise.race([
-      Promise.allSettled(providerRuns),
+      Promise.all(Array.from({ length: Math.min(CONCURRENCY, providers.length) }, worker)),
       (async () => {
-        while (Date.now() - start < PROVIDER_BUDGET) {
+        while (Date.now() < deadline) {
           if (firstStreamAt && Date.now() - firstStreamAt >= EARLY_EXIT_GRACE) return;
           await new Promise(r => setTimeout(r, 400));
         }

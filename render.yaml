@@ -32,6 +32,10 @@ services:
       # Once a playable stream is found, how long to keep collecting mirrors.
       - key: EARLY_EXIT_GRACE_MS
         value: "6000"
+      # How many providers scrape at once. 0.1 CPU cannot feed five at a time:
+      # they starve each other and all of them miss the budget.
+      - key: PROVIDER_CONCURRENCY
+        value: "2"
       - key: PROXY_TIMEOUT_MS
         value: "10000"
       # Set to "1" if /api/v1/debug?action=net shows the target sites answering
