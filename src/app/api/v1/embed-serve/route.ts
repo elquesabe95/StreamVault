@@ -15,6 +15,7 @@ import { searchJKAnime, getJKAnimeServers } from "@/lib/scrapers/jkanime";
 import { searchAnimeFLV, getAnimeFLVServers } from "@/lib/scrapers/animeflv";
 import { resolveStream } from "@/lib/scrapers/resolver";
 import { publicOrigin } from "@/lib/public-origin";
+import { getReferer } from "@/lib/cdn-referer";
 
 type PlaybackType = "hls" | "mp4" | "iframe";
 
@@ -379,8 +380,47 @@ export async function GET(req: NextRequest) {
       finalSources.push({ url: u, name: `${providerName} ${count++}`, lang, playbackType: getPlaybackType(u) });
     }
 
+    // ── 5b. Check which streams this server can actually redeem ─────────────
+    // The CDN tokens in these URLs are bound to the IP that fetched the embed
+    // page. Where the scrape has to go out through a rotating proxy — as it does
+    // on Render, which PelisPedia blocks directly — that address never matches
+    // the one this server fetches from, so every HLS source 403s. The player
+    // only discovers that one source at a time, spending ~40s cycling through
+    // dead entries before it reaches an iframe that works. The probe runs the
+    // exact request the proxy would, so a pass here means the player can load
+    // it. Dead streams are ranked below the iframes rather than dropped, so
+    // they stay available if the probe is wrong.
+    const PROBE_TIMEOUT = Number(process.env.STREAM_PROBE_MS) || 6000;
+
+    const probe = async (rawUrl: string): Promise<boolean> => {
+      const ref = getReferer(rawUrl);
+      try {
+        const res = await fetch(rawUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "*/*",
+            ...(ref ? { Referer: ref, Origin: new URL(ref).origin } : {}),
+          },
+          signal: AbortSignal.timeout(PROBE_TIMEOUT),
+        });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    };
+
+    const alive = await Promise.all(
+      finalSources.map(s => s.playbackType === "iframe" ? Promise.resolve(true) : probe(s.url))
+    );
+    finalSources.forEach((s, i) => { s.redeemable = alive[i]; });
+    const deadStreams = alive.filter(ok => !ok).length;
+
     const rank: Record<PlaybackType, number> = { hls: 0, mp4: 1, iframe: 2 };
-    finalSources.sort((a, b) => rank[a.playbackType as PlaybackType] - rank[b.playbackType as PlaybackType]);
+    finalSources.sort((a, b) => {
+      // Anything this server cannot fetch goes last, whatever its type.
+      if (a.redeemable !== b.redeemable) return a.redeemable ? -1 : 1;
+      return rank[a.playbackType as PlaybackType] - rank[b.playbackType as PlaybackType];
+    });
 
     // ── 6. Proxy HLS/MP4 through our Node.js server (same AWS IP as scraper) ─
     const origin = publicOrigin(req);
@@ -393,11 +433,11 @@ export async function GET(req: NextRequest) {
       return s;
     });
 
-    // Only cache if we got at least 1 direct stream
-    const hasStream = proxiedSources.some(s => s.playbackType !== "iframe");
+    // Only cache if something is actually playable.
+    const hasStream = proxiedSources.some(s => s.redeemable);
     if (hasStream) setCached(cacheKey, proxiedSources);
 
-    console.log(`[EmbedServe] ${metadata.title} — ${proxiedSources.length} sources (${proxiedSources.filter(s=>s.playbackType==="hls").length} HLS) in ${Date.now() - start}ms`);
+    console.log(`[EmbedServe] ${metadata.title} — ${proxiedSources.length} sources (${proxiedSources.filter(s=>s.playbackType==="hls").length} HLS, ${deadStreams} unredeemable) in ${Date.now() - start}ms`);
 
     return NextResponse.json({
       success: true,

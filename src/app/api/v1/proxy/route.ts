@@ -5,29 +5,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 import { publicOrigin } from "@/lib/public-origin";
+import { getReferer } from "@/lib/cdn-referer";
 
-const CDN_REFERERS: Record<string, string> = {
-  "acek-cdn.com": "https://awish.pro/",
-  "dramiyos-cdn.com": "https://awish.pro/",
-  "filemoon.sx": "https://filemoon.sx/",
-  "vidhide.com": "https://vidhide.com/",
-  "streamtape.com": "https://streamtape.com/",
-  "dood.to": "https://dood.to/",
-  "voe.sx": "https://voe.sx/",
-  "voe-network.net": "https://voe.sx/",
-  "tiviplex.com": "https://voe.sx/",
-};
-
-function getReferer(url: string, custom?: string | null): string {
-  if (custom) return custom;
-  try {
-    const host = new URL(url).hostname;
-    for (const [domain, ref] of Object.entries(CDN_REFERERS)) {
-      if (host.includes(domain)) return ref;
-    }
-  } catch {}
-  return "";
-}
 
 /**
  * Rewrites an m3u8 playlist so every URL (segments, variant playlists,
