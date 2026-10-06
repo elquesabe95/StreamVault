@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-export const maxDuration = 25;
+export const maxDuration = 60;
 
 import { getMovieDetails, getTvDetails, tmdbImage } from "@/lib/tmdb";
 import { searchPelispedia, getPelispediaSources, getPelispediaEpisodeUrl } from "@/lib/scrapers/pelispedia";
@@ -277,49 +277,76 @@ export async function GET(req: NextRequest) {
     // ── 4. Run providers in parallel; each resolves its own sources fully ─────
     // Timeout wraps the ENTIRE scrape+resolve for each provider.
     // No per-step timeouts inside — that's what was killing the resolver before.
-    const PROVIDER_BUDGET = 18000; // 18 seconds (under Vercel 25s maxDuration)
+    //
+    // Budget sizing: the old 18s was cut to fit Vercel's 25s function cap. Render
+    // runs a long-lived Node server with no such cap, and every outbound hop there
+    // costs ~8s instead of ~1s, so under 18s no provider ever finished and the
+    // response came back with sources: [] — a player stuck on "Buscando fuentes".
+    const PROVIDER_BUDGET = Number(process.env.PROVIDER_BUDGET_MS) || 55000;
+    // Once a directly playable stream is in hand, give stragglers a short grace
+    // period for alternatives instead of burning the whole budget.
+    const EARLY_EXIT_GRACE = Number(process.env.EARLY_EXIT_GRACE_MS) || 6000;
+
+    type Hit = { providerName: string; url: string; lang: string };
 
     const pTimeout = <T>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
       Promise.race([p, new Promise<T>(r => setTimeout(() => r(fallback), ms))]);
 
-    const allProviderResults = await Promise.allSettled(
-      providers.map(p =>
-        pTimeout(
-          (async () => {
-            const items: RawItem[] = await p.fn().catch(() => []);
-            const resolved = await Promise.all(
-              items.map(async (item) => {
-                if (!item.url) return [];
-                const lang = item.lang === "spanish" ? "Castellano"
-                  : item.lang === "subbed" ? "Sub"
-                  : item.lang || "Latino";
-                const urls = await resolveToPlayable(item.url);
-                return urls.map(u => ({ providerName: p.name, url: u, lang }));
-              })
-            );
-            return resolved.flat();
-          })(),
-          PROVIDER_BUDGET,
-          [] as { providerName: string; url: string; lang: string }[]
-        )
-      )
+    const hits: Hit[] = [];
+    let firstStreamAt = 0;
+
+    const providerRuns = providers.map(p =>
+      pTimeout(
+        (async () => {
+          const items: RawItem[] = await p.fn().catch(() => []);
+          const resolved = await Promise.all(
+            items.map(async (item) => {
+              if (!item.url) return [];
+              const lang = item.lang === "spanish" ? "Castellano"
+                : item.lang === "subbed" ? "Sub"
+                : item.lang || "Latino";
+              const urls = await resolveToPlayable(item.url);
+              return urls.map(u => ({ providerName: p.name, url: u, lang }));
+            })
+          );
+          return resolved.flat();
+        })(),
+        PROVIDER_BUDGET,
+        [] as Hit[]
+      ).then(found => {
+        hits.push(...found);
+        if (!firstStreamAt && found.some(h => getPlaybackType(h.url) !== "iframe")) {
+          firstStreamAt = Date.now();
+          console.log(`[EmbedServe] first stream from ${found[0]?.providerName} at ${Date.now() - start}ms`);
+        }
+        return found;
+      })
     );
+
+    // Finish on whichever comes first: all providers done, or a playable stream
+    // plus its grace period.
+    await Promise.race([
+      Promise.allSettled(providerRuns),
+      (async () => {
+        while (Date.now() - start < PROVIDER_BUDGET) {
+          if (firstStreamAt && Date.now() - firstStreamAt >= EARLY_EXIT_GRACE) return;
+          await new Promise(r => setTimeout(r, 400));
+        }
+      })(),
+    ]);
 
     // ── 5. Deduplicate and sort ───────────────────────────────────────────────
     const seen = new Set<string>();
     let count = 1;
     const finalSources: any[] = [];
 
-    for (const r of allProviderResults) {
-      if (r.status !== "fulfilled") continue;
-      for (const { providerName, url: u, lang } of r.value) {
-        if (!u || seen.has(u)) continue;
-        if (/minochinos|earnvids|short\.icu/i.test(u)) continue;
-        if (/youtube\.com|youtu\.be/i.test(u)) continue;
-        if (getPlaybackType(u) === "iframe" && /tveo\.site/i.test(u)) continue;
-        seen.add(u);
-        finalSources.push({ url: u, name: `${providerName} ${count++}`, lang, playbackType: getPlaybackType(u) });
-      }
+    for (const { providerName, url: u, lang } of hits) {
+      if (!u || seen.has(u)) continue;
+      if (/minochinos|earnvids|short\.icu/i.test(u)) continue;
+      if (/youtube\.com|youtu\.be/i.test(u)) continue;
+      if (getPlaybackType(u) === "iframe" && /tveo\.site/i.test(u)) continue;
+      seen.add(u);
+      finalSources.push({ url: u, name: `${providerName} ${count++}`, lang, playbackType: getPlaybackType(u) });
     }
 
     const rank: Record<PlaybackType, number> = { hls: 0, mp4: 1, iframe: 2 };

@@ -18,6 +18,32 @@ services:
       # Prisma's postinstall generate reads this from the schema's env().
       - key: DATABASE_URL
         value: file:./prisma/dev.db
+
+      # ── Scrape timing ───────────────────────────────────────────────────────
+      # Render is not serverless: there is no 25s function cap, and the free
+      # plan's 0.1 CPU makes every outbound hop cost ~8s instead of ~1s. The
+      # old 18s budget (sized for Vercel) meant no provider ever finished and
+      # /api/v1/embed-serve answered with sources: [].
+      # Locally one request makes ~62 outbound hops and finishes in ~30s. At
+      # ~8s per hop on 0.1 CPU it needs real headroom, and a slow answer beats
+      # the empty one the 18s budget produced.
+      - key: PROVIDER_BUDGET_MS
+        value: "70000"
+      # Once a playable stream is found, how long to keep collecting mirrors.
+      - key: EARLY_EXIT_GRACE_MS
+        value: "6000"
+      - key: PROXY_TIMEOUT_MS
+        value: "10000"
+      # Set to "1" if /api/v1/debug?action=net shows the target sites answering
+      # Render directly — that skips the proxy hop and is several times faster.
+      - key: SCRAPER_DIRECT_FIRST
+        value: "0"
+      # Comma-separated extra CORS proxies, tried after the Worker.
+      - key: PROXY_EXTRA_URLS
+        value: ""
+
       # Secrets — set the real values in the Render dashboard.
       - key: TMDB_API_KEY
+        sync: false
+      - key: PROXY_WORKER_URL
         sync: false

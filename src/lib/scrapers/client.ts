@@ -1,4 +1,4 @@
-import { spawnSync } from "child_process";
+import { spawn } from "child_process";
 import https from "https";
 import http from "http";
 
@@ -63,9 +63,10 @@ function tryNative(url: string, headers: Record<string, string>, timeout: number
   });
 }
 
-function tryCurl(url: string, headers: Record<string, string>): string {
-  try {
-    // PHP-style curl with specific options that might bypass blocks
+function tryCurl(url: string, headers: Record<string, string>): Promise<string> {
+  return new Promise((resolve) => {
+    // spawn, not spawnSync: this process also serves every other request, and a
+    // synchronous child blocks the event loop (and every pending timer) with it.
     const args = [
       "-s", "-L", "--max-time", "4",
       "--tlsv1.2",
@@ -79,14 +80,35 @@ function tryCurl(url: string, headers: Record<string, string>): string {
       "-H", "Sec-Fetch-Site: none",
       "-H", "Sec-Fetch-User: ?1",
     ];
-    Object.entries(headers).forEach(([k, v]) => {
-      args.push("-H", `${k}: ${v}`);
-    });
+    Object.entries(headers).forEach(([k, v]) => args.push("-H", `${k}: ${v}`));
     args.push(url);
-    const result = spawnSync("curl", args, { encoding: "utf8", maxBuffer: 5 * 1024 * 1024 });
-    if (result.stdout?.length > 300) return result.stdout;
-  } catch {}
-  return "";
+
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn("curl", args, { windowsHide: true });
+    } catch {
+      resolve("");
+      return;
+    }
+
+    let out = "";
+    let done = false;
+    let killer: ReturnType<typeof setTimeout>;
+    const finish = (value: string) => {
+      if (done) return;
+      done = true;
+      clearTimeout(killer);
+      resolve(value);
+    };
+    killer = setTimeout(() => { try { child.kill("SIGKILL"); } catch {} finish(""); }, 6000);
+
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk: string) => {
+      if (out.length < 5 * 1024 * 1024) out += chunk;
+    });
+    child.on("error", () => finish(""));   // curl not installed on this image
+    child.on("close", () => finish(out.length > 300 ? out : ""));
+  });
 }
 
 function isCloudflareChallenge(html: string): boolean {
@@ -98,13 +120,22 @@ function isCloudflareChallenge(html: string): boolean {
 }
 
 function getProxies(): string[] {
+  // Only the Cloudflare Worker still answers. codetabs (HTTP 522), corsproxy.io
+  // (403) and allorigins (522) were all dead, and each one burned up to
+  // PROXY_TIMEOUT_MS of the request budget before failing — on Render that was
+  // most of the time available to scrape. Add replacements via PROXY_EXTRA_URLS
+  // (comma-separated); an entry ending in "=" or "?" gets the encoded target
+  // appended as-is, anything else gets "?url=".
+  const extra = (process.env.PROXY_EXTRA_URLS || "")
+    .split(",").map(s => s.trim()).filter(Boolean);
   return [
     process.env.PROXY_WORKER_URL || "https://streamvault-proxy.elquesabe95.workers.dev",
-    "https://api.codetabs.com/v1/proxy?quest=",
-    "https://corsproxy.io/?",
-    "https://api.allorigins.win/raw?url=",
+    ...extra,
   ];
 }
+
+const PROXY_TIMEOUT = Number(process.env.PROXY_TIMEOUT_MS) || 10000;
+const DIRECT_TIMEOUT = Number(process.env.DIRECT_TIMEOUT_MS) || 6000;
 
 export async function readPage(url: string, customHeaders?: Record<string, string>, useProxy: boolean = false): Promise<string> {
   const headers = buildHeaders(customHeaders);
@@ -116,25 +147,19 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   const runProxyChain = async (): Promise<string> => {
     for (const proxy of getProxies()) {
       const isCFWorker = proxy.includes("workers.dev");
-      const isCorsProxy = proxy.includes("corsproxy.io");
-      const isAllOrigins = proxy.includes("allorigins.win");
-      const isCodeTabs = proxy.includes("codetabs.com");
 
-      let proxyUrl: string;
-      if (isCorsProxy || isAllOrigins) {
-        proxyUrl = `${proxy}${encodeURIComponent(freshUrl)}`;
-      } else if (isCodeTabs) {
-        proxyUrl = `${proxy}${encodeURIComponent(freshUrl)}`;
-      } else {
-        proxyUrl = `${proxy}?url=${encodeURIComponent(freshUrl)}`;
-      }
+      // An entry that already ends in its query parameter takes the target
+      // appended directly; everything else gets "?url=".
+      let proxyUrl = proxy.endsWith("=") || proxy.endsWith("?")
+        ? `${proxy}${encodeURIComponent(freshUrl)}`
+        : `${proxy}?url=${encodeURIComponent(freshUrl)}`;
 
       if (isCFWorker) {
         if (headers["Referer"]) proxyUrl += `&ref=${encodeURIComponent(headers["Referer"])}`;
         if (headers["Origin"]) proxyUrl += `&origin=${encodeURIComponent(headers["Origin"])}`;
       }
 
-      const html = await tryFetch(proxyUrl, headers, 6000);
+      const html = await tryFetch(proxyUrl, headers, PROXY_TIMEOUT);
       if (html && !isCloudflareChallenge(html) && html.length > 500) {
         console.log(`[readPage] Proxy OK: ${proxy.substring(0, 30)} (${html.length}b)`);
         return html;
@@ -144,6 +169,16 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   };
 
   if (useProxy) {
+    // Where the host's outbound IPs aren't blocked by the target site, a direct
+    // hit costs ~1s against ~3-8s through the proxy. Opt in with
+    // SCRAPER_DIRECT_FIRST=1 (measure first: /api/v1/debug?action=net).
+    if (process.env.SCRAPER_DIRECT_FIRST === "1") {
+      const direct = await tryFetch(freshUrl, headers, DIRECT_TIMEOUT);
+      if (direct && !isCloudflareChallenge(direct)) {
+        console.log(`[readPage] Direct-first (${direct.length}b): ${url.substring(0, 60)}`);
+        return direct;
+      }
+    }
     const html = await runProxyChain();
     if (html) return html;
     console.warn(`[readPage] Proxy failed for: ${url.substring(0, 80)}`);
@@ -151,20 +186,20 @@ export async function readPage(url: string, customHeaders?: Record<string, strin
   }
 
   // No proxy requested — try direct then curl then native
-  let html = await tryFetch(freshUrl, headers, 6000);
+  let html = await tryFetch(freshUrl, headers, DIRECT_TIMEOUT);
   if (html && !isCloudflareChallenge(html)) {
     console.log(`[readPage] Direct (${html.length}b): ${url.substring(0, 60)}`);
     return html;
   }
   if (html) console.warn(`[readPage] Cloudflare detected on direct`);
 
-  html = tryCurl(freshUrl, headers);
+  html = await tryCurl(freshUrl, headers);
   if (html && !isCloudflareChallenge(html)) {
     console.log(`[readPage] curl (${html.length}b)`);
     return html;
   }
 
-  html = await tryNative(freshUrl, headers, 6000);
+  html = await tryNative(freshUrl, headers, DIRECT_TIMEOUT);
   if (html && !isCloudflareChallenge(html)) {
     console.log(`[readPage] Native (${html.length}b): ${url.substring(0, 60)}`);
     return html;

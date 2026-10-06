@@ -123,15 +123,26 @@ function decryptAES(encryptedBase64: string, aesKeyBytes: Buffer): string | null
   }
 }
 
-async function solvePoW(challenge: string, difficulty: number, salt: string): Promise<Buffer> {
+// Bounded on purpose: this runs on the same single-threaded process that serves
+// every other request, so an unbounded spin (the previous `while (true)` with no
+// deadline) could wedge the whole server — on a 0.1-CPU instance a high
+// difficulty would never finish. Yields to the event loop while it searches.
+const POW_BUDGET_MS = Number(process.env.POW_BUDGET_MS) || 8000;
+
+async function solvePoW(challenge: string, difficulty: number, salt: string): Promise<Buffer | null> {
   const prefix = "0".repeat(difficulty);
+  const deadline = Date.now() + POW_BUDGET_MS;
   let nonce = 0;
-  while (true) {
+  for (;;) {
     const hash = sha256(challenge + nonce);
     if (hash.startsWith(prefix)) {
       return sha256Bytes(challenge + nonce + salt);
     }
     nonce++;
+    if ((nonce & 0x3fff) === 0) {
+      if (Date.now() > deadline) return null;
+      await new Promise(r => setImmediate(r));
+    }
   }
 }
 
@@ -155,7 +166,9 @@ async function resolveMasterEmbed(html: string): Promise<string[]> {
     const start = Date.now();
     try {
       aesKeyBytes = await solvePoW(challenge, difficulty, salt);
-      console.log(`[Resolver] PoW solved in ${Date.now() - start}ms`);
+      console.log(aesKeyBytes
+        ? `[Resolver] PoW solved in ${Date.now() - start}ms`
+        : `[Resolver] PoW gave up after ${Date.now() - start}ms (difficulty=${difficulty})`);
     } catch (e) {
       console.error("[Resolver] PoW solver failed", e);
     }

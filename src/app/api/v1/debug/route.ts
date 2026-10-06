@@ -229,6 +229,53 @@ export async function GET(req: NextRequest) {
       results.isJson = html.trim().startsWith("{") || html.trim().startsWith("[");
     }
 
+    // Measures, from wherever this is deployed, whether the target sites answer
+    // a direct request and how each configured proxy compares. Use it to decide
+    // SCRAPER_DIRECT_FIRST and to spot dead proxies in the chain.
+    if (action === "net") {
+      const targets = (searchParams.get("targets") ||
+        "https://pelispedia.mov/,https://www.cinecalidad.vg/,https://yandispoiler.net/,https://cuevana.biz/,https://ww3.gnulahd.nu/"
+      ).split(",").map(t => t.trim()).filter(Boolean);
+
+      const proxies = [
+        process.env.PROXY_WORKER_URL || "https://streamvault-proxy.elquesabe95.workers.dev",
+        ...(process.env.PROXY_EXTRA_URLS || "").split(",").map(x => x.trim()).filter(Boolean),
+      ];
+
+      const probe = async (url: string) => {
+        const t0 = Date.now();
+        try {
+          const res = await fetch(url, {
+            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
+            signal: AbortSignal.timeout(15000),
+            redirect: "follow",
+          });
+          const body = await res.text();
+          return { status: res.status, ms: Date.now() - t0, bytes: body.length };
+        } catch (e: any) {
+          return { status: 0, ms: Date.now() - t0, error: e?.name || String(e) };
+        }
+      };
+
+      results.env = {
+        directFirst: process.env.SCRAPER_DIRECT_FIRST === "1",
+        proxyTimeoutMs: Number(process.env.PROXY_TIMEOUT_MS) || 10000,
+        providerBudgetMs: Number(process.env.PROVIDER_BUDGET_MS) || 55000,
+        proxies,
+      };
+
+      results.probes = await Promise.all(targets.map(async (t) => ({
+        target: t,
+        direct: await probe(t),
+        viaProxy: await Promise.all(proxies.map(async (px) => ({
+          proxy: px,
+          ...(await probe(px.endsWith("=") || px.endsWith("?")
+            ? `${px}${encodeURIComponent(t)}`
+            : `${px}?url=${encodeURIComponent(t)}`)),
+        }))),
+      })));
+    }
+
     return NextResponse.json({ success: true, results });
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e.message, results });
