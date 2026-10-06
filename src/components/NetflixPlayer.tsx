@@ -8,6 +8,8 @@ interface StreamSource {
   name?: string;
   lang?: string;
   playbackType?: "hls" | "mp4" | "iframe";
+  /** False when the server probed this stream and could not fetch it itself. */
+  redeemable?: boolean;
   originalUrl?: string;
   headers?: Record<string, string>;
 }
@@ -26,7 +28,12 @@ function sortByPlayback(list: StreamSource[]): StreamSource[] {
       (s.url?.includes(".m3u8") ? "hls" : s.url?.includes(".mp4") ? "mp4" : "iframe");
     return t === "hls" ? 0 : t === "mp4" ? 1 : 2;
   };
-  return [...list].sort((a, b) => rank(a) - rank(b));
+  // A stream the server could not fetch will 403 here too — it is proxied
+  // through that same server — so it goes last whatever its type, however much
+  // a direct stream would otherwise be preferred over an embed. Sources with no
+  // verdict (other pages, which do not probe) keep the plain type order.
+  const dead = (s: StreamSource) => (s.redeemable === false ? 1 : 0);
+  return [...list].sort((a, b) => dead(a) - dead(b) || rank(a) - rank(b));
 }
 
 export default function NetflixPlayer({ sources, title, onBack, headers, showLangBadge }: NetflixPlayerProps) {
